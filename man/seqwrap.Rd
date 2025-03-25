@@ -7,7 +7,7 @@ fitting algorithm.}
 \usage{
 seqwrap(
   y,
-  fitting_fun,
+  modelfun,
   arguments,
   data,
   metadata,
@@ -27,8 +27,8 @@ seqwrap(
 \item{y, }{An swcontainer object created with seqwrap_compose, a named list
 or a DGEList object.}
 
-\item{fitting_fun}{A model fitting function like stats::lm,
-glmmTMB::glmmTMB, lme4::lmer}
+\item{modelfun}{A model fitting function like stats::lm,
+glmmTMB::glmmTMB or lme4::lmer}
 
 \item{arguments}{An alist or list of arguments to be passed to the fitting
 function, this should not contain data. Note that the formula must have

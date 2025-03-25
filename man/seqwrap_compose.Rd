@@ -5,24 +5,27 @@
 \title{Compose a swcontainer object for use in the seqwrap function.}
 \usage{
 seqwrap_compose(
-  x,
-  fitting_fun,
+  x = NULL,
+  modelfun,
   arguments,
   data,
+  rownames = FALSE,
   metadata,
+  targetdata,
   samplename = "seq_sample_id",
   additional_vars = NULL,
   summary_fun = NULL,
   eval_fun = NULL,
-  exported = list()
+  exported = list(),
+  update = list()
 )
 }
 \arguments{
 \item{x}{An optional named list or DGEList object (DESeqDataSet not yet
 implemented).}
 
-\item{fitting_fun}{A model fitting function like stats::lm,
-glmmTMB::glmmTMB, lme4::lmer}
+\item{modelfun}{A model fitting function like stats::lm,
+glmmTMB::glmmTMB or lme4::lmer}
 
 \item{arguments}{An alist or list of arguments to be passed to the fitting
 function, this should not contain data. Note that the formula must have
@@ -35,6 +38,9 @@ identifications as the first column in the data frame(s). If rownames = TRUE
 row names will be converted to target identifications. If data is provided as
 a list, each element of the list should be named. The corresponding names
 be available as variables for the fitting function.}
+
+\item{rownames}{should row names in data be used as target identifications?
+Defaults to FALSE.}
 
 \item{metadata}{A data frame with sample names (corresponding to column
 names in the target matrix)
@@ -61,8 +67,7 @@ returned}
 summary_fun and eval_fun. This list must contain any functions that
 should be used in model summarise or evaluations.}
 
-\item{rownames}{should row names in data be used as target identifications?
-Defaults to FALSE.}
+\item{update}{A list of named parameters to update a swcontainer object.}
 }
 \value{
 A swcontainer object for direct use in seqwrap.
