@@ -535,6 +535,8 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' @param cores An integer indicating the number of cores to be used in parallel
 #'  computations. If NULL, a sequential for loop is used. If "max", all
 #'  available cores are used.
+#' @param verbose Logical, should the function print diagnostics after checking
+#' the data container?
 #' @return A nested list with three upper levels slots: models, a list of
 #' fitted objects; summaries, a list of summaries created from the summary_fun
 #' function; evaluations, a list of diagnostics created from eval_fun.
@@ -544,11 +546,11 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' evaluate models.
 #' @export
 seqwrap <- function(
-  y,
-  modelfun,
-  arguments,
-  data,
-  metadata,
+  y = NULL,
+  modelfun = NULL,
+  arguments = NULL,
+  data = NULL,
+  metadata = NULL,
   samplename = "seq_sample_id",
   additional_vars = NULL,
   summary_fun = NULL,
@@ -558,12 +560,88 @@ seqwrap <- function(
   save_models = FALSE,
   model_path = NULL,
   subset = NULL,
-  cores
+  cores = 1,
+  verbose = TRUE
 ) {
-  #
+  # If the input is a swcontainer object, use the object
+  if (S7::S7_inherits(y, seqwrap::swcontainer)) {
+    container <- y
+
+    # If variables are to be updated, update the container
+    updates <- list()
+
+    if (!is.null(modelfun)) updates$modelfun <- modelfun
+    if (!is.null(arguments)) updates$arguments <- arguments
+    if (!is.null(data)) updates$data <- data
+    if (!is.null(metadata)) updates$metadata <- metadata
+    if (!is.null(samplename)) updates$samplename <- samplename
+    if (!is.null(additional_vars)) updates$additional_vars <- additional_vars
+    if (!is.null(summary_fun)) updates$summary_fun <- summary_fun
+    if (!is.null(eval_fun)) updates$eval_fun <- eval_fun
+    if (!is.null(exported)) updates$exported <- exported
+
+    # Update the container
+    if (length(updates) > 0) container <- seqwrap_compose(container,
+                                                          update = updates)
 
 
+  } else if (class(y) == "DGEList") {
+    # If the input is a DGEList object, compose a new container
+    container <- seqwrap_compose(x = y)
 
+    # If variables are to be updated, update the container
+    updates <- list()
+
+    if (!is.null(modelfun)) updates$modelfun <- modelfun
+    if (!is.null(arguments)) updates$arguments <- arguments
+    if (!is.null(data)) updates$data <- data
+    if (!is.null(metadata)) updates$metadata <- metadata
+    if (!is.null(samplename)) updates$samplename <- samplename
+    if (!is.null(additional_vars)) updates$additional_vars <- additional_vars
+    if (!is.null(summary_fun)) updates$summary_fun <- summary_fun
+    if (!is.null(eval_fun)) updates$eval_fun <- eval_fun
+    if (!is.null(exported)) updates$exported <- exported
+
+    # Update the container
+    container <- seqwrap_compose(container, update = updates)
+
+
+  } else if (is.null(y)) {
+    # If the input is NULL, compose a new container
+    container <- seqwrap_compose(
+      modelfun = modelfun,
+      arguments = arguments,
+      data = data,
+      metadata = metadata,
+      samplename = samplename,
+      additional_vars = additional_vars,
+      summary_fun = summary_fun,
+      eval_fun = eval_fun,
+      exported = exported
+    )
+  } else {
+    stop("The input must be a swcontainer object, a DGEList object or NULL")
+  }
+
+  # If subset is provided, subset the data
+  if (!is.null(subset)) {
+    if (is.numeric(subset)) {
+      container@data <- container@data[subset, ]
+      if (!is.null(container@targetdata)) {
+        container@targetdata <- container@targetdata[subset, ]
+      }
+    } else {
+      stop("Subset must be a numeric vector")
+    }
+  }
+
+
+  # Check the container for consistency
+  # seqwrap_check(container, verbose = verbose)
+
+  # Get the number of targets and samples
+  k <- nrow(container@data)
+  n <- nrow(container@metadata)
 
 
 
@@ -571,13 +649,12 @@ seqwrap <- function(
   # containing variables, y in case of user-provided data frame;
   # names of variables from list names in case of user-provided
   # named list.
-  dfs <- data_helper(data)
 
-  ### Combine information for print method ###
-  # Store number of targets
-  k <- length(dfs)
-  # Store the number of samples
-  n <- length(metadata[, samplename])
+  if (is.null(container@targetdata)) {
+    dfs <- data_helper(container@data)
+  } else {
+    dfs <- data_helper(container@data, container@targetdata)
+  }
 
   # Determine the number of cores
   if (is.null(cores)) num_cores <- 1
@@ -595,12 +672,20 @@ seqwrap <- function(
   # Print pre-fit information
   cli::cli_h1("seqwrap")
   cli::cli_inform(
-    "Preparing to fit {n} sample{?s} and {k} target{?s} using
-                    {call_engine} and {call_arguments}
-                    with {num_cores} core{?s}."
+    "Initiating clusters for parallel processing with {num_cores} core{?s}"
   )
 
-  ### Fitting models in parallel #######
+  ## Applying the model function in parallel ##
+
+  # Making variables from the container available in the parallel environment
+  metadata <- container@metadata
+  arguments <- container@arguments
+  modelfun <- container@modelfun
+  samplename <- container@samplename
+  additional_vars <- container@additional_vars
+  summary_fun <- container@summary_fun
+  eval_fun <- container@eval_fun
+  exported <- container@exported
 
   # Create a cluster using the number of cores specified
   cl <- parallel::makeCluster(num_cores)
@@ -624,7 +709,7 @@ seqwrap <- function(
   )
 
   # Parallel execution of the fitting process
-  cli::cli_h2("Merging and modelling data...")
+  cli::cli_inform("Merging and modelling data")
   results <- pbapply::pblapply(
     cl = cl,
     X = dfs,
@@ -671,7 +756,7 @@ seqwrap <- function(
   errors_sum <- sapply(errors, function(x) sum(!sapply(x, is.null)))
 
   ## Evaluate errors for the resulting print function
-  cli::cli_h2("Completed")
+  cli::cli_inform("Completed model fitting and evaluation")
 
   if (any(errors_sum[-1] > 0)) {
     cli::cli_alert_info("Some targets had associated errors or warnings")

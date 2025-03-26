@@ -6,11 +6,11 @@
 fitting algorithm.}
 \usage{
 seqwrap(
-  y,
-  modelfun,
-  arguments,
-  data,
-  metadata,
+  y = NULL,
+  modelfun = NULL,
+  arguments = NULL,
+  data = NULL,
+  metadata = NULL,
   samplename = "seq_sample_id",
   additional_vars = NULL,
   summary_fun = NULL,
@@ -20,7 +20,8 @@ seqwrap(
   save_models = FALSE,
   model_path = NULL,
   subset = NULL,
-  cores
+  cores = 1,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -83,6 +84,9 @@ subset of targets. If keft to the default (NULL), all rows will be used.}
 \item{cores}{An integer indicating the number of cores to be used in parallel
 computations. If NULL, a sequential for loop is used. If "max", all
 available cores are used.}
+
+\item{verbose}{Logical, should the function print diagnostics after checking
+the data container?}
 }
 \value{
 A nested list with three upper levels slots: models, a list of
