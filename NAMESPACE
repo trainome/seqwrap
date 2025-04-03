@@ -3,4 +3,5 @@
 export(seqwrap)
 export(seqwrapResults)
 export(seqwrap_compose)
+export(seqwrap_summarise)
 export(swcontainer)

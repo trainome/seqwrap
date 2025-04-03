@@ -30,7 +30,8 @@ swcontainer(
   summary_fun = function() NULL,
   eval_fun = function() NULL,
   exported = list(),
-  model_print = character(0)
+  model_print = character(0),
+  arguments_print = character(0)
 )
 }
 \description{

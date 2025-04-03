@@ -116,7 +116,8 @@ swcontainer <- S7::new_class(
     summary_fun = S7::class_function,
     eval_fun = S7::class_function,
     exported = S7::class_list,
-    model_print = S7::class_character
+    model_print = S7::class_character,
+    arguments_print = S7::class_character
   )
 )
 
@@ -222,7 +223,7 @@ seqwrap_compose <- function(
   data,
   rownames = FALSE,
   metadata,
-  targetdata,
+  targetdata = NULL,
   samplename = "seq_sample_id",
   additional_vars = NULL,
   summary_fun = NULL,
@@ -293,6 +294,7 @@ seqwrap_compose <- function(
   if (!is.null(modelfun)) container@modelfun <- modelfun
   if (!is.null(modelfun)) container@model_print <- deparse(call_str$modelfun)
   if (!is.null(arguments)) container@arguments <- arguments
+  if (!is.null(arguments)) container@arguments_print <- deparse(call_str$arguments)
   if (!is.null(data)) container@data <- data
   if (!is.null(rownames)) container@rownames <- rownames
   if (!is.null(metadata)) container@metadata <- metadata
@@ -628,7 +630,9 @@ seqwrap <- function(
     if (is.numeric(subset)) {
       container@data <- container@data[subset, ]
       if (!is.null(container@targetdata)) {
-        container@targetdata <- container@targetdata[subset, ]
+        container@targetdata <- lapply(container@targetdata, function(x) {
+          x[subset]
+        })
       }
     } else {
       stop("Subset must be a numeric vector")
@@ -785,9 +789,219 @@ seqwrap <- function(
     errors = errors,
     n = n,
     k = k,
-    call_arguments = call_arguments,
-    call_engine = call_engine
+    call_arguments = container@arguments_print,
+    call_engine = container@model_print
   )
 
   return(comb_results)
 }
+
+
+
+#' Summarise seqwrapResults objects
+#'
+#' @param x A seqwrapResults object
+#' @param summaries Logical, should summaries be combined?
+#' @param evaluations Logical, should evaluations be combined?
+#' @param errors Logical, should errors be combined?
+#'
+#' @details
+#' This functions attempts to summarise results from the summary and evaluation
+#' functions applied in each iteration during modelling. The function expects
+#' that the summary and evaluation functions return data frames.
+#'
+#'
+#'
+#' @export
+seqwrap_summarise <- function(x,
+                              summaries = TRUE,
+                              evaluations = TRUE,
+                              errors = TRUE,
+                              verbose = TRUE) {
+
+  # Check if the input is a seqwrapResults object
+  if (!S7::S7_inherits(x, seqwrapResults)) {
+    stop("The input must be a seqwrapResults object")
+  }
+
+
+  ## Print information from the seqwrapResults object
+  print_info <-function() {
+    cli::cli_h1("seqwrap summarise")
+
+    cli::cli_li(
+      "A total of {x@n} sample{?s} and {x@k} target{?s} where
+                  used in {.code {x@call_engine}} with arguments
+                  {.code {x@call_arguments}}"
+    )
+    if (summaries) {
+      cli::cli_li("Attempting to combine results from
+                  the provided summary function.")
+    }
+
+    if (evaluations) {
+      cli::cli_li("Attempting to combine results from
+                  the provided evaluations function.")
+    }
+
+    if (errors) {
+      cli::cli_li("Attempting to summarise errors and
+                  warnings from the fitting process.")
+    }
+
+  }
+
+  if (verbose) print_info()
+
+
+
+  ## Initialize results variables ##
+  summarised_results_final <- NULL
+  evaluated_results_final <- NULL
+
+  # print(x)
+
+  ## Extract summarises
+  if (summaries) {
+
+
+    # Check for NULL or empty list
+    if (is.null(x@summaries) || all(sapply(x@summaries, is.null)))  {
+
+      print_summary <- function() {
+      cli::cli_h1("Model summaries")
+      cli::cli_alert_info("No summaries available")
+      }
+      if (verbose) print_summary()
+
+      } else {
+
+      # Count the number of non-null elements in the list of summaries
+      n_summaries <- sum(!sapply(x@summaries, is.null))
+
+
+
+      print_summary <- function() {
+        cli::cli_h1("Model summaries")
+        cli::cli_li("{n_summaries} targets have associated summaries")
+
+      }
+
+      if (verbose) print_summary()
+
+      # Filter out NULL elements from the list of summaries
+      x@summaries <- x@summaries[!sapply(x@summaries, is.null)]
+
+      # Use Map to put names in the target column
+      temp_list_summaries <- Map(function(df, df_name) {
+        df[["target"]] <- df_name
+        # Move the target column to the first column
+        df <- df[, c("target", setdiff(colnames(df), "target")),
+                 drop = FALSE]
+        # Return data frames
+        df
+      }, x@summaries, names(x@summaries))
+
+      # Bind the list of data frames
+      summarised_results_final <- do.call(rbind, temp_list_summaries)
+      # NOW set rownames to NULL on the combined data frame
+      rownames(summarised_results_final) <- NULL
+
+    }
+  } # End if (summaries)
+
+  ## Extract evaluations
+  if (evaluations) {
+
+    # Check for NULL or empty list
+    if (is.null(x@evaluations) || all(sapply(x@evaluations, is.null))) {
+
+      print_evaluation <- function() {
+        cli::cli_h1("Model evaluations")
+        cli::cli_alert_info("No evaluations available")
+      }
+      if (verbose) print_evaluation()
+      # evaluated_results_final remains NULL
+    } else {
+
+      # Count the number of non-null elements in the list of evaluations
+      n_evals <- sum(!sapply(x@evaluations, is.null))
+
+
+
+      print_evaluation <- function() {
+        cli::cli_h1("Model evaluations")
+        cli::cli_li("{n_evals} targets have associated evaluation results")
+
+      }
+
+      if (verbose) print_evaluation()
+
+      # Filter out NULL elements from the list of evaluations
+      x@evaluations <- x@evaluations[!sapply(x@evaluations, is.null)]
+
+      # Use Map to process each data frame in the list
+      temp_list_evaluations <- Map(function(df, df_name) {
+        df[["target"]] <- df_name
+        # Move the target column to the first column
+        df <- df[, c("target", setdiff(colnames(df), "target")),
+                 drop = FALSE]
+
+        df
+      }, x@evaluations, names(x@evaluations))
+
+      # Bind the list of data frames
+      evaluated_results_final <- do.call(rbind, temp_list_evaluations)
+      rownames(evaluated_results_final) <- NULL
+
+    }
+  } # End if (evaluations)
+
+  ## Combine results
+  # Create empty results list
+  results <- list()
+
+  if (!is.null(summarised_results_final)) {
+    results$summaries <- summarised_results_final
+  }
+
+  if (!is.null(evaluated_results_final)) {
+    results$evaluations <- evaluated_results_final
+  }
+
+  # Add error handling results here if implemented
+
+  # Check if the final list is empty
+  if (length(results) == 0) {
+    cli::cli_alert_warning("No results were generated, check your input.")
+  }
+
+  # Check if the final list is empty
+  if (length(results) != 0) {
+  if (verbose) {
+    cli::cli_h1("Combined results")
+    cli::cli_alert_info("Combined results have been generated and were
+                        silently returned.")
+  }
+
+  }
+
+  # Return the final list object
+  return(invisible(results))
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

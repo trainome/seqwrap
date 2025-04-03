@@ -1,0 +1,309 @@
+---
+title: "workflow"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+## Repeated measures data from a RNA sequencing experiment
+
+
+```{r}
+
+library(seqwrap)
+
+# Load example data
+dat <- data.frame(seqwrap::rna_seq_sample)
+
+metdat <- seqwrap::rna_seq_metadata
+
+metdat <- metdat[metdat$rnaseq_include == "incl",]
+
+# Calculate the "library size" for each sample
+
+
+# Convert to integer data
+dat <- cbind(dat[,1], data.frame(lapply(dat[,-1], function(x) as.integer(round(x)))))
+
+# Calculate the library size
+libsize <- colSums(dat[,-1])
+
+libsize <- data.frame(
+  seq_sample_id = colnames(dat)[-1],
+  libsize = log(libsize), 
+  row.names = NULL
+)
+
+
+# Combine the library size with the metadata
+metdat_comb <- merge(metdat, libsize, by = "seq_sample_id")
+
+# Change levels in the time factor
+metdat_comb$time <- factor(medat_comb$time, levels = c("w0", "w2pre", "w2post", "w12"))
+
+
+```
+
+
+### Prepare summary and evaluation functions
+
+
+```{r}
+# Data and meta data for a single model 
+
+
+testdat <- metdat_comb
+testdat$y <- as.numeric(dat[2,-1 ])
+
+
+# Running a single model 
+m <- glmmTMB::glmmTMB(
+  y ~ time + time:condition + (1|participant) + offset(libsize),
+  data = testdat,
+  family = glmmTMB::nbinom1()
+)
+
+
+
+# The summary function should retreive the model summary
+sumfun <- function(m) {
+  
+  cond_effects <- data.frame(coef(summary(m))$cond)
+  cond_effects$coef <- rownames(cond_effects)
+  rownames(cond_effects) <- NULL
+  
+  # For calculating the df
+  n_fix <- nrow(coef(summary(m))$cond)
+  n_ran <- m$modelInfo$reStruc$condReStruc[[1]]$blockReps
+  n_obs <- nobs(m)
+  
+  df <- n_obs - n_fix - n_ran
+  
+  
+  colnames(cond_effects)[1:4] <- c("estimate", "se", "zval", "pval")
+  cond_effects <- cond_effects[,c(5,1:4)]
+  
+  # Extract fitted mean values
+  gene_mean <- mean(fitted(m))
+  
+  ## Get the dispersion parameter
+  results <- rbind(cond_effects, 
+                   data.frame(coef = c("dispersion","gene_mean", "variance", "df"), 
+                              estimate = c(summary(m)$sigma,
+                                           gene_mean, 
+                                           gene_mean * (1 + gene_mean/summary(m)$sigma), 
+                                           df),
+                              
+                              se = NA, 
+                              zval = NA, 
+                              pval = NA)
+  )
+  return(results)
+             
+}
+
+
+
+
+
+evalfun <- function(m) {
+  
+  
+ # resids <- DHARMa::simulateResiduals(m, n = 1000)
+  
+ # uniformity <- DHARMa::testUniformity(resids, plot = FALSE)
+  
+  results <- data.frame(uniform.p = NA)
+  return(results)
+}
+
+
+
+
+sumfun(m)
+
+evalfun(m)
+
+
+
+```
+
+
+
+
+### Prepare the data for seqwrap: `seqwrap_compose()`
+
+
+```{r}
+
+
+
+
+
+
+
+
+swdat <- seqwrap_compose(
+  data = dat,
+  metadata = medat_comb,
+  samplename = "seq_sample_id",
+  modelfun = glmmTMB::glmmTMB,
+  summary_fun = sumfun,
+  eval_fun = evalfun,
+  targetdata = NULL,
+#  additional_vars =  "libsize",
+  arguments = list(formula = y ~ time + time:condition + 
+                     (1|participant) + offset(libsize),
+                   family = glmmTMB::nbinom2()),
+  
+
+)
+
+
+models <- seqwrap(swdat)
+
+
+
+```
+
+
+#### Combine results
+
+
+```{r}
+
+summaries <- seqwrap_summarise(models)
+
+# Summary results
+cond_effects <- summaries$summaries
+
+
+dispersion_vals_log <- log(cond_effects[cond_effects$coef == "dispersion",]$estimate)
+dispersion_vals <- cond_effects[cond_effects$coef == "dispersion",]$estimate
+gene_means <- log(cond_effects[cond_effects$coef == "gene_mean",]$estimate)
+df <- cond_effects[cond_effects$coef == "df",]$estimate
+
+
+
+trendfit <- loess(dispersion_vals_log ~ gene_means, span = 0.75)
+
+trenddisp <- exp(predict(trendfit, 
+                         newdata = data.frame(gene_means = gene_means)))
+
+## Shrinkage 
+prior_df <- 10
+gene_df <- df
+
+
+## Shrink dispersion values
+dispersion_vals_shrinkage <- (dispersion_vals * gene_df + trenddisp * prior_df) /
+  (gene_df + prior_df)
+
+
+
+
+
+plot(gene_means, dispersion_vals_log)
+
+xseq <- seq(min(gene_means), max(gene_means), length.out = 100)
+y_pred <- predict(trendfit, newdata = data.frame(gene_means = xseq))
+
+lines(xseq, y_pred, col = "red", lwd = 2)
+points(gene_means, log(dispersion_vals_shrinkage), pch = 19, col = "blue")
+
+
+
+
+```
+
+
+
+#### Use shrinkage values in refitting the model
+
+```{r}
+
+testdat
+
+
+
+m2 <- glmmTMB::glmmTMB(
+  y ~ time + time:condition + (1|participant) + offset(libsize),
+  data = testdat,
+  family = glmmTMB::nbinom1(),
+  map = list(betad = factor(NA)),
+  start = list(betad = log(14))
+)
+
+
+
+sumfun(m2)
+evalfun(m2)
+
+
+
+
+
+
+
+```
+
+
+
+```{r}
+
+# Some models where not fitted correctly and do not have corresponding 
+# dispersion estimates. Retain only the models that were fitted correctly
+
+dat <- dat[dat[, 1] %in% unique(cond_effects$target),]
+
+
+# Sort the data in order of the dispersion values
+dat2 <- dat[order(match(dat[,1], cond_effects[cond_effects$coef == "dispersion",]$target)),]
+
+
+dispersions <- data.frame(disp = log(dispersion_vals_shrinkage)[1:10], 
+                          unf = rep(10, 10))
+
+
+swdat2 <- seqwrap_compose(
+  data = dat2,
+  metadata = metdat_comb,
+  samplename = "seq_sample_id",
+  modelfun = glmmTMB::glmmTMB,
+  summary_fun = sumfun,
+  eval_fun = evalfun,
+  targetdata = dispersions,
+  additional_vars =  "libsize",
+  arguments = list(formula = y ~ time + time:condition + 
+                     (1|participant) + offset(libsize),
+                   map = list(betad = factor(NA)),
+                   start = alist(betad = disp),
+                   family = glmmTMB::nbinom1()),
+  
+)
+
+
+models2 <- seqwrap(swdat2, subset = 1:10)
+
+
+
+models2@errors[1,2][[1]]
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

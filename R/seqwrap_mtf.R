@@ -81,7 +81,19 @@ seqwrap_mtf <- function(
 
   # Making target-wise data available
   # for the model fitting algorithm.
-  if (!is.null(x[[2]])) list2env(x[[2]],envir = environment())
+  if (!is.null(x[[2]])) {
+
+    target.wise <- x[[2]]
+
+    for (col_name in seq_along(names(target.wise))) {
+      assign(names(target.wise)[col_name], target.wise[[col_name]][1])
+    }
+
+  }
+
+  ## TESTING
+  print(disp)
+
 
   # Add warning/errors to outputs
   warn <- NULL

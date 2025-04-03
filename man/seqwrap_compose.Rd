@@ -11,7 +11,7 @@ seqwrap_compose(
   data,
   rownames = FALSE,
   metadata,
-  targetdata,
+  targetdata = NULL,
   samplename = "seq_sample_id",
   additional_vars = NULL,
   summary_fun = NULL,
