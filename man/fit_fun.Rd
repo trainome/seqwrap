@@ -4,12 +4,14 @@
 \alias{fit_fun}
 \title{A function to fit models with a chosen fitting algorithm, used in seqwrap.}
 \usage{
-fit_fun(fun, arg)
+fit_fun(fun, arg, vars = NULL)
 }
 \arguments{
 \item{fun}{Name of a fitting function, like glmmTMB::glmmTMB}
 
 \item{arg}{A list of arguments that can be evaluated by the fitting function}
+
+\item{vars}{A list of variables to be used in the fitting function}
 }
 \description{
 A function to fit models with a chosen fitting algorithm, used in seqwrap.

@@ -52,7 +52,7 @@ as input.}
 
 \item{\code{metadata}}{A data frame with sample information}
 
-\item{\code{targetdata}}{A data frame with sample information}
+\item{\code{targetdata}}{A data frame with target-wise information used in models}
 
 \item{\code{samplename}}{A character for sample name identification}
 

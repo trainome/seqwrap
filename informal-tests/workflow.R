@@ -70,12 +70,16 @@ results <- seqwrap_summarise(testres)
 results$summaries
 
 
+add_vars <- NULL
 
 
+arg_list <- list(formula = y ~ time + time:condition +
+                   (1|participant) + offset(libsize),
+                 map = list(betad = factor(NA)),
+                 start = alist(betad = disp),
+                 family = glmmTMB::nbinom1())
 
-
-
-
+arg <- arg_list
 
 
 
@@ -90,32 +94,72 @@ lapply(ls, function(x) x[subset])
 
 
 
-temp <- seqwrap:::data_helper(
+x <- seqwrap:::data_helper(
   dat = dat2[1:10,],
   targetdat = dispersions,
   rownames = FALSE
 )
 
 
-target.wise <- temp[[1]][[2]]
-
-list2env(target.wise, envir = .GlobalEnv)
+x <- x[[1]]
 
 
 
+temp[[1]][[1]]
 
-rm(disp)
-target.wise[[disp]]
+target.wise <- x[[1]][[2]]
+
+vars <- as.list(target.wise)
+
+for (i in seq_along(names(vars))) {
+  assign(names(vars)[i], vars[[i]], envir = environment())
+
+}
+
+
+
+
+ls <- list(formula = y~x,
+           start = alist(betad = disp))
+
+
+
+
+## Key names list
+
+ls2 <- list(disp = 23)
+
+key_names <- names(ls2)
+
+which(key_names == ls[[key_names]])
 
 
 
 
 
 
+x <- seqwrap:::data_helper(
+  dat = d,
+  targetdat = NULL,
+  rownames = FALSE
+)
+
+
+x <- x[[1]]
+
+
+x[[1]]
+
+arg_list <- list(formula = y ~ group)
+
+metdat <- md
 
 
 
+samp_name <- "samplename"
 
+
+ffun <- stats::glm
 
 
 

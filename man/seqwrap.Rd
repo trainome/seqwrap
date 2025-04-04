@@ -11,7 +11,7 @@ seqwrap(
   arguments = NULL,
   data = NULL,
   metadata = NULL,
-  samplename = "seq_sample_id",
+  samplename = NULL,
   additional_vars = NULL,
   summary_fun = NULL,
   eval_fun = NULL,

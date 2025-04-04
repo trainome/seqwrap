@@ -46,6 +46,11 @@ Defaults to FALSE.}
 names in the target matrix)
 and design variables.}
 
+\item{targetdata}{A data frame with target-wise values (e.g. dispersion or
+start values) for each target. This is used in the model fitting function.
+Variables in the data frame should have matching names in the list of
+arguments.}
+
 \item{samplename}{A character value indicating the variable by which
 metadata can merge with the target data. This defaults to "seq_sample_id"
 as this is used in the trainomeMetaData package.}

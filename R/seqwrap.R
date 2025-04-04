@@ -93,7 +93,7 @@ seqwrapResults <- S7::new_class(
 #' @slot data A data frame or a list of data frames
 #' @slot rownames A logical indicating if row names should be used as target id
 #' @slot metadata A data frame with sample information
-#' @slot targetdata A data frame with sample information
+#' @slot targetdata A data frame with target-wise information used in models
 #' @slot samplename A character for sample name identification
 #' @slot additional_vars A character vector of additional variables exported to
 #' @slot summary_fun A function
@@ -197,6 +197,10 @@ S7::method(print, seqwrapResults) <- function(x) {
 #' @param metadata A data frame with sample names (corresponding to column
 #' names in the target matrix)
 #' and design variables.
+#' @param targetdata A data frame with target-wise values (e.g. dispersion or
+#' start values) for each target. This is used in the model fitting function.
+#' Variables in the data frame should have matching names in the list of
+#' arguments.
 #' @param samplename A character value indicating the variable by which
 #' metadata can merge with the target data. This defaults to "seq_sample_id"
 #' as this is used in the trainomeMetaData package.
@@ -553,7 +557,7 @@ seqwrap <- function(
   arguments = NULL,
   data = NULL,
   metadata = NULL,
-  samplename = "seq_sample_id",
+  samplename = NULL,
   additional_vars = NULL,
   summary_fun = NULL,
   eval_fun = NULL,
@@ -766,18 +770,18 @@ seqwrap <- function(
     cli::cli_alert_info("Some targets had associated errors or warnings")
 
     cli::cli_inform(c(
-      "*" = "Fitting algorithm (errors): n = {errors_sum[2]}
-      ({100 * (errors_sum[2]/k)}%)",
-      "*" = "Fitting algorithm (warnings): n = {errors_sum[3]}
-      ({100 * (errors_sum[3]/k)}%)",
+      "*" = "Modeling algorithm (errors): n = {errors_sum[2]}
+      ({round(100 * (errors_sum[2]/k))}%)",
+      "*" = "Modeling algorithm (warnings): n = {errors_sum[3]}
+      ({round(100 * (errors_sum[3]/k))}%)",
       "*" = "Summary function (errors): n = {errors_sum[4]}
-      ({100 * (errors_sum[4]/k)}%)",
+      ({round(100 * (errors_sum[4]/k))}%)",
       "*" = "Summary function (warnings): n = {errors_sum[5]}
-      ({100 * (errors_sum[5]/k)}%)",
+      ({round(100 * (errors_sum[5]/k))}%)",
       "*" = "Evaluation function (errors): n = {errors_sum[6]}
-      ({100 * (errors_sum[6]/k)}%)",
+      ({round(100 * (errors_sum[6]/k))}%)",
       "*" = "Evaluation function (warnings): n = {errors_sum[7]}
-      ({100 * (errors_sum[7]/k)}%)"
+      ({round(100 * (errors_sum[7]/k))}%)"
     ))
   }
 

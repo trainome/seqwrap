@@ -40,8 +40,9 @@ libsize <- data.frame(
 metdat_comb <- merge(metdat, libsize, by = "seq_sample_id")
 
 # Change levels in the time factor
-metdat_comb$time <- factor(medat_comb$time, levels = c("w0", "w2pre", "w2post", "w12"))
+metdat_comb$time <- factor(metdat_comb$time, levels = c("w0", "w2pre", "w2post", "w12"))
 
+metdat <- metdat_comb
 
 ```
 
@@ -139,14 +140,14 @@ evalfun(m)
 
 
 
-
+dat <- dat[1:100,]
 
 
 
 
 swdat <- seqwrap_compose(
   data = dat,
-  metadata = medat_comb,
+  metadata = metdat_comb,
   samplename = "seq_sample_id",
   modelfun = glmmTMB::glmmTMB,
   summary_fun = sumfun,
@@ -262,30 +263,48 @@ dat <- dat[dat[, 1] %in% unique(cond_effects$target),]
 dat2 <- dat[order(match(dat[,1], cond_effects[cond_effects$coef == "dispersion",]$target)),]
 
 
-dispersions <- data.frame(disp = log(dispersion_vals_shrinkage)[1:10], 
-                          unf = rep(10, 10))
+dispersions <- data.frame(trenddisp = log(dispersion_vals_shrinkage)[1:10])
+
 
 
 swdat2 <- seqwrap_compose(
-  data = dat2,
+  data = dat2[1:10,],
   metadata = metdat_comb,
   samplename = "seq_sample_id",
   modelfun = glmmTMB::glmmTMB,
   summary_fun = sumfun,
   eval_fun = evalfun,
   targetdata = dispersions,
-  additional_vars =  "libsize",
+  additional_vars =  NULL,
   arguments = list(formula = y ~ time + time:condition + 
                      (1|participant) + offset(libsize),
                    map = list(betad = factor(NA)),
-                   start = alist(betad = disp),
+                   start = alist(betad = trenddisp),
                    family = glmmTMB::nbinom1()),
   
 )
 
 
-models2 <- seqwrap(swdat2, subset = 1:10)
+models2 <- seqwrap(swdat2, return_models = TRUE)  
 
+
+
+sumfun(models2@models[[1]])
+
+sums <- seqwrap_summarise(models)
+
+sums <- sums$summaries
+
+
+old_disp <- cond_effects[cond_effects$coef == "dispersion", c("target","estimate") ]
+colnames(old_disp) <- c("target", "old_dispersion")
+
+new_disp <- sums[sums$coef == "dispersion", c("target","estimate") ]
+
+comb <- merge(old_disp, new_disp, by = "target")
+
+
+plot(comb$old_dispersion, comb$estimate)
 
 
 models2@errors[1,2][[1]]
@@ -295,7 +314,259 @@ models2@errors[1,2][[1]]
 
 
 
+## EdgeR and seqwrap comparison
 
+```{r}
+
+library(edgeR)
+
+
+fname <- "http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE49712&format=file&file=GSE49712_HTSeq.txt.gz"
+download.file(fname, destfile = "GSE49712_HTSeq.txt.gz")
+
+data_raw <- read.table("GSE49712_HTSeq.txt.gz", header = TRUE)
+
+d <- data.frame(targets = rownames(data_raw), 
+                data_raw[,1:ncol(data_raw)], 
+                row.names = NULL)
+
+# Remove five lines with summarises
+d <- d[1:(nrow(d)-5),]
+
+
+
+
+```
+
+
+
+```{r}
+
+
+## Filter low expressed targets
+cpm_log <- cpm(d[,-1], log = TRUE)
+median_log2_cpm <- apply(cpm_log, 1, median)
+expr_cutoff <- 0
+
+d <- d[median_log2_cpm > expr_cutoff, ]
+
+
+
+
+
+
+md <- data.frame(seq_id = colnames(d)[-1], 
+                 group = rep(c("A", "B"), each = 5), 
+                 libsize = log(as.numeric(colSums(d[,-1]))))
+
+
+
+testdat <- data.frame(y = as.numeric(d[1,-1]), 
+                      group = factor(md$group),
+                      libsize = md$libsize, 
+                      row.names = NULL)
+
+m <- MASS::glm.nb(y ~ group + offset(libsize), 
+                  
+           data = testdat)
+summary(m)
+
+sumfun <- function(m) {
+  
+  # Main effects 
+  cond_effects <- data.frame(coef(summary(m)))
+  cond_effects$coef <- rownames(cond_effects)  
+  rownames(cond_effects) <- NULL  
+  cond_effects <- cond_effects[,c(5,1:4)]  
+  colnames(cond_effects)[1:5] <- c("coef","estimate", "se", "zval", "pval")
+  
+  # Dispersion
+  dispersion <- data.frame(coef = "dispersion", 
+                           estimate = m$theta, 
+                           se = NA, 
+                           zval = NA, 
+                           pval = NA)
+  # Gene mean
+  gene_mean <- data.frame(coef = "gene_mean", 
+                           estimate = mean(fitted(m)), 
+                           se = NA, 
+                           zval = NA, 
+                           pval = NA)
+  
+  # Gene df
+  df <- data.frame(coef = "df", 
+                           estimate = m$df.residual, 
+                           se = NA, 
+                           zval = NA, 
+                           pval = NA)
+
+  ## Combine the output
+  out <- rbind(cond_effects, dispersion, gene_mean, df)
+  
+  return(out)  
+  
+}
+
+
+evalfun <- function(m) {
+  
+  return(data.frame(some_criteria = NA))
+  
+}
+
+
+
+
+swd <- seqwrap_compose(modelfun = MASS::glm.nb, 
+                       data = d, 
+                       metadata = md, 
+                       samplename = "seq_id",
+                       summary_fun = sumfun,
+                       eval_fun = evalfun,
+                         additional_vars =  NULL,
+                       arguments = alist(formula = y ~ group + offset(libsize), 
+                                         maxit = 500))
+
+
+prel_models <- seqwrap(swd, return_models = FALSE, cores = 12)                      
+
+# prel_models@errors[10,2][[1]]
+
+
+
+## Extract dispersions
+
+prel_summaries <- seqwrap_summarise(prel_models)
+prel_summaries <- prel_summaries$summaries
+
+dispersions <- data.frame(target = prel_summaries[prel_summaries$coef == "dispersion","target"], 
+           dispersion = prel_summaries[prel_summaries$coef == "dispersion","estimate"], 
+           gene_mean = prel_summaries[prel_summaries$coef == "gene_mean","estimate"], 
+           df = prel_summaries[prel_summaries$coef == "df","estimate"])
+                       
+ 
+dmerge <- merge(d, dispersions, by.x = "targets", by.y = "target")
+
+dmerge$m <- rowMeans(dmerge[,2:7])
+plot(dmerge$m, log(dmerge$dispersion))
+
+## Shrink dispersion values
+disp <- dispersions$dispersion
+avg_mean <- log(dispersions$gene_mean)
+
+# Fit loess
+loess_fit <- loess(log(disp) ~ avg_mean, span = 0.5)
+
+# Predict loess
+xseq <- seq(min(avg_mean), max(avg_mean), length.out = 100)
+prior_disp <- exp(predict(loess_fit, newdata = data.frame(avg_mean = avg_mean)))
+# The trend for plotting
+trend <- predict(loess_fit, newdata = data.frame(avg_mean = xseq))
+
+
+
+## Calculate shrinkage
+prior_df <- 3
+gene_df <- 3 # Same as residuial DF in models
+
+shrink_disp <- (gene_df * disp + prior_df * prior_disp)/ (gene_df + prior_df)
+
+plot(avg_mean, log(disp))
+lines(xseq, trend, col = "red", lwd = 2)
+points(avg_mean, log(shrink_disp), pch = 19, col = "blue")
+
+
+
+
+
+## Re-fit the model with dispersion values after shrinkage
+
+
+testdat <- data.frame(y = as.numeric(d[1,-1]), 
+                      group = md$group, 
+                      libsize = log(md$libsize), 
+                      row.names = NULL)
+
+m <- stats::glm(y ~ group + offset(libsize), 
+                family = MASS::negative.binomial(theta = 53),
+           data = testdat)
+summary(m)
+
+sumfun2 <- function(m) {
+  
+  # Main effects 
+  cond_effects <- data.frame(coef(summary(m)))
+  cond_effects$coef <- rownames(cond_effects)  
+  rownames(cond_effects) <- NULL  
+  cond_effects <- cond_effects[,c(5,1:4)]  
+  colnames(cond_effects)[1:5] <- c("coef","estimate", "se", "zval", "pval")
+  
+
+ 
+  gene_mean <- data.frame(coef = "gene_mean", 
+                           estimate = mean(fitted(m)), 
+                           se = NA, 
+                           zval = NA, 
+                           pval = NA)
+  
+  # Gene df
+  df <- data.frame(coef = "df", 
+                   estimate = m$df.residual, 
+                   se = NA, 
+                   zval = NA, 
+                   pval = NA)
+
+  ## Combine the output
+  out <- rbind(cond_effects, gene_mean, df)
+  
+  return(out)  
+  
+}
+
+
+# Some genes were not fitted correctly and do not have corresponding
+# dispersion estimates. Retain only the models that were fitted correctly
+
+d2 <- d[d[, 1] %in% unique(dispersions$target),]
+d2 <- d2[order(match(d2[,1], dispersions$target)),]
+
+
+# Check that the data is sorted
+all(d2[,1] == dispersions$target)
+
+# Extract dipersions into a data frame
+disp_vals <- data.frame(disp = dispersions$dispersion)
+
+
+swd2 <- seqwrap_compose(modelfun = stats::glm, 
+                       data = d2,
+                       metadata = md, 
+                       samplename = "seq_id",
+                       summary_fun = sumfun2,
+                       eval_fun = evalfun,
+                       targetdata = disp_vals,
+                       additional_vars =  NULL,
+                       arguments = alist(formula = y ~ group + offset(libsize),
+                                        family = MASS::negative.binomial(theta = disp))) 
+
+
+models2 <- seqwrap(swd2, return_models = FALSE, cores = 12)
+
+sum2 <- seqwrap_summarise(models2)$summaries
+
+
+sums <- data.frame(target = sum2[sum2$coef == "groupB",]$target, 
+                   estimate = sum2[sum2$coef == "groupB",]$estimate,
+                   se = sum2[sum2$coef == "groupB",]$se,
+                   pval = sum2[sum2$coef == "groupB",]$pval, 
+                   avg_mean = sum2[sum2$coef == "gene_mean",]$estimate)
+
+
+plot(sums$avg_mean, sums$estimate)
+
+
+                  
+```
 
 
 

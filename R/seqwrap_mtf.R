@@ -1,9 +1,49 @@
 #' A function to fit models with a chosen fitting algorithm, used in seqwrap.
 #' @param fun Name of a fitting function, like glmmTMB::glmmTMB
 #' @param arg A list of arguments that can be evaluated by the fitting function
+#' @param vars A list of variables to be used in the fitting function
 #' @keywords internal
-fit_fun <- function(fun, arg) {
-  # Fit the model using the selected machinery and available arguments
+fit_fun <- function(fun, arg, vars = NULL) {
+
+  if (!is.null(vars)) {
+    # Un-pack the list of variables
+    replace_param_value <- function(nested_list, replacement_list) {
+      # Define a recursive helper function
+      replace_recursive <- function(x) {
+        if (is.call(x) || is.expression(x) || is.name(x)) {
+          # If it's a name that matches one in our replacement list
+          if (is.name(x) && as.character(x) %in% names(replacement_list)) {
+            return(replacement_list[[as.character(x)]])
+          }
+
+          # If it's a call, process each argument recursively
+          if (is.call(x)) {
+            for (i in seq_along(x)) {
+              x[[i]] <- replace_recursive(x[[i]])
+            }
+          }
+          return(x)
+        } else if (is.list(x)) {
+          # Process each list element recursively
+          for (i in seq_along(x)) {
+            x[[i]] <- replace_recursive(x[[i]])
+          }
+          return(x)
+        } else {
+          # Return other data types unchanged
+          return(x)
+        }
+      }
+
+      # Call the helper function on the nested list
+      return(replace_recursive(nested_list))
+    }
+
+    arg <- replace_param_value(arg, vars)
+
+    }
+
+
   fittedmodel <- do.call(fun, arg)
 
   # return the model
@@ -29,17 +69,17 @@ fit_fun <- function(fun, arg) {
 #' @param ffun the fitting function from the upper level function
 #' @keywords internal
 seqwrap_mtf <- function(
-  x,
-  samp_name,
-  metdat,
-  arg_list,
-  add_vars,
-  mt_summary_fun,
-  mt_eval_fun,
-  ffun,
-  return_mod,
-  save_mods,
-  mod_path
+    x,
+    samp_name,
+    metdat,
+    arg_list,
+    add_vars,
+    mt_summary_fun,
+    mt_eval_fun,
+    ffun,
+    return_mod,
+    save_mods,
+    mod_path
 ) {
   # Extracting the specific target-specific data and transposing
   transposed <- data.frame(t(x[[1]]))
@@ -82,17 +122,11 @@ seqwrap_mtf <- function(
   # Making target-wise data available
   # for the model fitting algorithm.
   if (!is.null(x[[2]])) {
-
     target.wise <- x[[2]]
-
-    for (col_name in seq_along(names(target.wise))) {
-      assign(names(target.wise)[col_name], target.wise[[col_name]][1])
-    }
-
+  } else {
+    target.wise <- NULL
   }
 
-  ## TESTING
-  print(disp)
 
 
   # Add warning/errors to outputs
@@ -109,9 +143,12 @@ seqwrap_mtf <- function(
   mod_sum <- NULL
   mod_eval <- NULL
 
+
   ## Fit the model
   tryCatch(
-    mod <- fit_fun(ffun, arguments_final),
+    mod <- fit_fun(ffun,
+                   arguments_final,
+                   vars = target.wise),
     warning = function(w) warn <<- w,
     error = function(e) err <<- e
   )
