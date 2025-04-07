@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
 Title: Item-by-item Iterative Model Fitting
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
@@ -26,9 +26,10 @@ Suggests:
     DiagrammeR,
     dplyr,
     knitr,
-    DHARMa, 
+    DHARMa,
     glmmTMB,
-    lme4
+    lme4,
+    rmarkdown
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2
 Collate: 
@@ -38,3 +39,5 @@ Collate:
     'data.R'
     'seqwrap.R'
     'seqwrap_mtf.R'
+    'simcounts.R'
+VignetteBuilder: knitr

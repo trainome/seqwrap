@@ -5,85 +5,72 @@ library(seqwrap)
 
 test_that("seqwrap returns a list of models in the model
           slot when asked to return models", {
-  test_glmmtmb <- seqwrap::seqwrap(
-    fitting_fun = glmmTMB::glmmTMB,
-    arguments = list(
-      formula = y ~
-        time +
-          (1 | participant),
-      family = glmmTMB::nbinom2
-    ),
-    data = seqdatasubset,
-    metadata = metadata,
-    samplename = "seq_sample_id",
-    additional_vars = NULL,
-    summary_fun = NULL,
-    eval_fun = NULL,
-    exported = list(),
-    return_models = TRUE,
-    save_models = FALSE,
-    model_path = NULL,
-    subset = NULL,
-    cores = 1
-  )
 
-  expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
+    # Simulate data
+    dat <- seqwrap:::simcounts(seed = 1,
+                               n_samples = 40,
+                               n_genes = 10,
+                               clusters = 20)
+
+    swobject <- seqwrap::seqwrap_compose(
+      modelfun = glmmTMB::glmmTMB,
+      arguments = list(
+        formula = y ~
+          x +
+          (1 | cluster),
+        family = glmmTMB::nbinom1
+      ),
+      data = dat$data,
+      metadata = dat$metadata,
+      samplename = "sample",
+      additional_vars = NULL
+    )
+
+
+
+
+
+    test_glmmtmb <- seqwrap::seqwrap(swobject,
+                                     return_models = TRUE,
+                                     cores = 1)
+
+
+
+    expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
 
   test_glmnb <- seqwrap::seqwrap(
-    fitting_fun = MASS::glm.nb,
-    arguments = list(formula = y ~ time),
-    data = seqdatasubset,
-    metadata = metadata,
-    samplename = "seq_sample_id",
-    additional_vars = NULL,
-    summary_fun = NULL,
-    eval_fun = NULL,
-    exported = list(),
+    swobject,
+    arguments = list(formula = y ~ x),
+    modelfun = MASS::glm.nb,
     return_models = TRUE,
-    save_models = FALSE,
-    model_path = NULL,
-    subset = NULL,
-    cores = 1
-  )
+    cores = 1)
 
   expect_s3_class(test_glmnb@models[[1]], c("glm", "lm", "negbin"))
 
+
+
+
+
+
+
   test_lm <- seqwrap::seqwrap(
-    fitting_fun = stats::lm,
-    arguments = list(formula = y ~ time),
-    data = seqdatasubset,
-    metadata = metadata,
-    samplename = "seq_sample_id",
-    additional_vars = NULL,
-    summary_fun = NULL,
-    eval_fun = NULL,
-    exported = list(),
+    swobject,
+    modelfun = stats::lm,
+    arguments = list(formula = y ~ x),
     return_models = TRUE,
-    save_models = FALSE,
-    model_path = NULL,
-    subset = NULL,
     cores = 1
   )
 
   expect_s3_class(test_lm@models[[1]], "lm")
 
   test_glm <- seqwrap::seqwrap(
-    fitting_fun = stats::glm,
+    swobject,
+    modelfun = stats::glm,
     arguments = list(
-      formula = y ~ time,
+      formula = y ~ x,
       family = poisson(link = "log")
     ),
-    data = seqdatasubset,
-    metadata = metadata,
-    samplename = "seq_sample_id",
-    additional_vars = NULL,
-    summary_fun = NULL,
-    eval_fun = NULL,
-    exported = list(),
     return_models = TRUE,
-    save_models = FALSE,
-    model_path = NULL,
-    subset = NULL,
     cores = 1
   )
 
@@ -126,25 +113,33 @@ test_that("Model summaries and evaluations returns expected results", {
     ))
   }
 
-  testsummary_glmmtmb <- seqwrap::seqwrap(
-    fitting_fun = glmmTMB::glmmTMB,
+
+  # Simulate data
+  dat <- seqwrap:::simcounts(seed = 1,
+                             n_samples = 40,
+                             n_genes = 10,
+                             clusters = 20)
+
+  swobject <- seqwrap::seqwrap_compose(
+    modelfun = glmmTMB::glmmTMB,
     arguments = list(
       formula = y ~
-        time +
-          (1 | participant),
-      family = glmmTMB::nbinom2
+        x +
+        (1 | cluster),
+      family = glmmTMB::nbinom1
     ),
-    data = seqdatasubset,
-    metadata = metadata,
-    samplename = "seq_sample_id",
-    additional_vars = NULL,
+    data = dat$data,
+    metadata = dat$metadata,
+    samplename = "sample",
+    additional_vars = NULL
+  )
+
+
+
+  testsummary_glmmtmb <- seqwrap::seqwrap(
+    swobject,
     summary_fun = summaryfun_glmmtmb,
     eval_fun = evalfun_glmmtmb,
-    exported = list(),
-    return_models = TRUE,
-    save_models = FALSE,
-    model_path = NULL,
-    subset = NULL,
     cores = 1
   )
 
@@ -156,9 +151,5 @@ test_that("Model summaries and evaluations returns expected results", {
   expect_null(testsummary_glmmtmb@errors$err_sum[[1]])
   expect_null(testsummary_glmmtmb@errors$err_eval[[1]])
 
-  # Expect errors when a bad function is passed
-  #
-  # To be written
-  #
-  #
+  # TODO add tests for the other model types
 })

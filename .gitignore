@@ -50,3 +50,4 @@ rsconnect/
 
 # Temp files for devel
 devel/
+inst/doc

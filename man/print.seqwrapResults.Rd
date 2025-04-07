@@ -14,7 +14,8 @@ Invoking the print method on seqwrapResults gives a summary
 of the fitted objects.
 }
 \examples{
+\dontrun{
 results <- seqwrap(...)
 print(results)
-
+}
 }

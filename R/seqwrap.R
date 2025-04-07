@@ -133,9 +133,10 @@ swcontainer <- S7::new_class(
 #' @return Invisibly returns the object
 #'
 #' @examples
+#'\dontrun{
 #' results <- seqwrap(...)
 #' print(results)
-#'
+#'}
 #' @method print seqwrapResults
 #' @name print.seqwrapResults
 S7::method(print, seqwrapResults) <- function(x) {
