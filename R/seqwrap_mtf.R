@@ -58,7 +58,7 @@ fit_fun <- function(fun, arg, vars = NULL) {
 #' @param x A data frame of target-specific quantities, in seqwrap a list
 #' from create_list is used iteratively.
 #' @param samp_name Sample names from the upper level function
-#' @param metadat Metadata from the upper level function
+#' @param metdat Metadata from the upper level function
 #' @param add_vars Additional variables to keep from the metadata
 #' @param arg_list Arguments from the upper level function
 #' @param mt_summary_fun Summary function from the upper level function
@@ -67,6 +67,7 @@ fit_fun <- function(fun, arg, vars = NULL) {
 #' @param save_mods Logical, should the models be saved?
 #' @param mod_path Path to save the models
 #' @param ffun the fitting function from the upper level function
+#' @importFrom stats as.formula
 #' @keywords internal
 seqwrap_mtf <- function(
     x,

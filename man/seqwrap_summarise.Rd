@@ -20,12 +20,14 @@ seqwrap_summarise(
 \item{evaluations}{Logical, should evaluations be combined?}
 
 \item{errors}{Logical, should errors be combined?}
+
+\item{verbose, }{Logical should progress be printed? Default TRUE}
 }
 \description{
 Summarise seqwrapResults objects
 }
 \details{
-This functions attempts to summarise results from the summary and evaluation
+This functions attempts to summarize results from the summary and evaluation
 functions applied in each iteration during modelling. The function expects
 that the summary and evaluation functions return data frames.
 }

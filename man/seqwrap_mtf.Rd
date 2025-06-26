@@ -27,6 +27,8 @@ from create_list is used iteratively.}
 
 \item{samp_name}{Sample names from the upper level function}
 
+\item{metdat}{Metadata from the upper level function}
+
 \item{arg_list}{Arguments from the upper level function}
 
 \item{add_vars}{Additional variables to keep from the metadata}
@@ -40,8 +42,6 @@ from create_list is used iteratively.}
 \item{save_mods}{Logical, should the models be saved?}
 
 \item{mod_path}{Path to save the models}
-
-\item{metadat}{Metadata from the upper level function}
 }
 \value{
 _mod Logical, should the models be returned as part of the results?

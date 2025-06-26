@@ -29,26 +29,25 @@ seqwrapResults(
   call_engine = character(0)
 )
 }
+\arguments{
+\item{models}{A list of fitted model objects}
+
+\item{summaries}{A list of model summaries}
+
+\item{evaluations}{A list of model evaluations}
+
+\item{errors}{A data frame of errors and warnings}
+
+\item{n}{Number of samples}
+
+\item{k}{Number of targets}
+
+\item{call_arguments}{Character string of function arguments used}
+
+\item{call_engine}{Character string of modeling engine used}
+
+\item{...}{Additional arguments (for S7 compatibility)}
+}
 \description{
 seqwrapResults constructor function.
 }
-\section{Slots}{
-
-\describe{
-\item{\code{models}}{description}
-
-\item{\code{summaries}}{description}
-
-\item{\code{evaluations}}{description}
-
-\item{\code{errors}}{description}
-
-\item{\code{n}}{description}
-
-\item{\code{k}}{description}
-
-\item{\code{call_arguments}}{description}
-
-\item{\code{call_engine}}{description}
-}}
-

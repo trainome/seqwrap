@@ -46,7 +46,12 @@ call_prop <- S7::new_property(
   }
 )
 
-
+# Define a custom property type that accepts either NULL or function
+null_or_function <- S7::new_property(
+  validator = function(value) {
+    if (!(is.null(value) || is.function(value))) "must be NULL or a function"
+  }
+)
 
 
 
@@ -56,14 +61,15 @@ call_prop <- S7::new_property(
 #'
 #' seqwrapResults constructor function.
 #'
-#' @slot models description
-#' @slot summaries description
-#' @slot evaluations description
-#' @slot errors description
-#' @slot n description
-#' @slot k description
-#' @slot call_arguments description
-#' @slot call_engine description
+#' @param models A list of fitted model objects
+#' @param summaries A list of model summaries
+#' @param evaluations A list of model evaluations
+#' @param errors A data frame of errors and warnings
+#' @param n Number of samples
+#' @param k Number of targets
+#' @param call_arguments Character string of function arguments used
+#' @param call_engine Character string of modeling engine used
+#' @param ... Additional arguments (for S7 compatibility)
 #'
 #'
 #' @export
@@ -80,25 +86,28 @@ seqwrapResults <- S7::new_class(
     call_arguments = S7::class_character,
     call_engine = S7::class_character
   )
-)
+ )
+
 
 #' seqwrap container class
 #'
 #' The seqwrap container is used to store and validate data input
 #' to the to seqwrap.
 #'
-#' @slot modelfun A function used to fit models using data and meta data
-#' as input.
-#' @slot arguments A list of arguments provided to the fitting function.
-#' @slot data A data frame or a list of data frames
-#' @slot rownames A logical indicating if row names should be used as target id
-#' @slot metadata A data frame with sample information
-#' @slot targetdata A data frame with target-wise information used in models
-#' @slot samplename A character for sample name identification
-#' @slot additional_vars A character vector of additional variables exported to
-#' @slot summary_fun A function
-#' @slot eval_fun A function
-#' @slot exported A list
+#' @param modelfun A function used to fit models
+#' @param arguments A list of arguments for the fitting function
+#' @param data A data frame or list of data frames with target data
+#' @param rownames Logical, should row names be used as target IDs?
+#' @param metadata A data frame with sample information
+#' @param targetdata A data frame with target-wise information
+#' @param samplename Character for sample name identification
+#' @param additional_vars Character vector of additional variables
+#' @param summary_fun A function for summarizing models
+#' @param eval_fun A function for evaluating models
+#' @param exported A list of objects to export to workers
+#' @param model_print Character representation of model function
+#' @param arguments_print Character representation of arguments
+#' @param ... Additional arguments (for S7 compatibility)
 #'
 #' @export
 swcontainer <- S7::new_class(
@@ -113,8 +122,8 @@ swcontainer <- S7::new_class(
     targetdata = null_or_list,
     samplename = S7::class_character,
     additional_vars = S7::class_character,
-    summary_fun = S7::class_function,
-    eval_fun = S7::class_function,
+    summary_fun = null_or_function,
+    eval_fun = null_or_function,
     exported = S7::class_list,
     model_print = S7::class_character,
     arguments_print = S7::class_character
@@ -139,7 +148,7 @@ swcontainer <- S7::new_class(
 #'}
 #' @method print seqwrapResults
 #' @name print.seqwrapResults
-S7::method(print, seqwrapResults) <- function(x) {
+S7::method(print, seqwrapResults) <- function(x, ...) {
   cli::cli_h1("seqwrap")
   cli::cli_inform(
     "A total of {x@n} sample{?s} and {x@k} target{?s} where
@@ -357,10 +366,11 @@ S7::method(seqwrap_update, swcontainer) <- function(container, update = list()) 
 #' This function performs verbose checks/diagnostics of a swcontainer object
 #'
 #' @param x A swcontainer object
+#' @param verbose Logical, should the function print diagnostics? Default TRUE
 #' @return A list of diagnostics
 seqwrap_check <- function(x, verbose = TRUE) {
   # Check if the container is a swcontainer object
-  if (!S7::S7_inherits(container, swcontainer)) {
+  if (!S7::S7_inherits(x, swcontainer)) {
     stop("The container must be a swcontainer object")
   }
 
@@ -630,6 +640,14 @@ seqwrap <- function(
     stop("The input must be a swcontainer object, a DGEList object or NULL")
   }
 
+
+  # If eval_fun or summary_fun are NULL, supply generic functions
+  if (is.null(container@summary_fun)) container@summary_fun <- generic_summary
+  if (is.null(container@eval_fun)) container@eval_fun <- generic_evaluation
+
+
+
+
   # If subset is provided, subset the data
   if (!is.null(subset)) {
     if (is.numeric(subset)) {
@@ -698,6 +716,14 @@ seqwrap <- function(
 
   # Create a cluster using the number of cores specified
   cl <- parallel::makeCluster(num_cores)
+
+  # Load required packages on each worker
+  parallel::clusterEvalQ(cl, {
+    library(broom.mixed)
+    library(DHARMa)
+    library(tibble)
+  })
+
   ## Export data to clusters
   parallel::clusterExport(
     cl,
@@ -808,10 +834,11 @@ seqwrap <- function(
 #' @param x A seqwrapResults object
 #' @param summaries Logical, should summaries be combined?
 #' @param evaluations Logical, should evaluations be combined?
+#' @param verbose, Logical should progress be printed? Default TRUE
 #' @param errors Logical, should errors be combined?
 #'
 #' @details
-#' This functions attempts to summarise results from the summary and evaluation
+#' This functions attempts to summarize results from the summary and evaluation
 #' functions applied in each iteration during modelling. The function expects
 #' that the summary and evaluation functions return data frames.
 #'

@@ -1,34 +1,37 @@
 Package: seqwrap
 Type: Package
 Title: Item-by-item Iterative Model Fitting
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: 
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
     role = c("aut", "cre"), 
     comment = c(ORCID = "0000-0001-8360-2100"))
 Description: Model high dimensional data using an item-by-item strategy.
-License: use_gpl_license()
+License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 LazyData: true
 URL: https://github.com/dhammarstrom/seqwrap
 BugReports: https://github.com/dhammarstrom/seqwrap/issues
+Depends: R (>= 2.10)
 Imports:
     cli,
     S7,
     tibble,
     pbapply,
     parallel,
-    stats
+    stats,
+    DHARMa,
+    broom.mixed
 Suggests: 
     testthat (>= 3.0.0),
     DiagrammeR,
     dplyr,
-    knitr,
-    DHARMa,
+    quarto,
     glmmTMB,
     lme4,
+    MASS,
     rmarkdown
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2
@@ -36,8 +39,10 @@ Collate:
     'seqwrap-global.R'
     'aaa-.R'
     'data-helper.R'
+    'data-prep.R'
     'data.R'
+    'generic-summaries.R'
     'seqwrap.R'
     'seqwrap_mtf.R'
     'simcounts.R'
-VignetteBuilder: knitr
+VignetteBuilder: quarto

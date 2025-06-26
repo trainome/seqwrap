@@ -14,6 +14,7 @@
 #' @param overdispersion_min_max Range of overdispersion parameter. If NULL,
 #' the Poisson distrubution is used to simulate data.
 #' @param seed Random seed for reproducibility.
+#' @importFrom stats rnorm runif rpois rnbinom
 #'
 #'
 #' @keywords internal

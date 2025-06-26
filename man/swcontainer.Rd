@@ -27,41 +27,43 @@ swcontainer(
   targetdata = NULL,
   samplename = character(0),
   additional_vars = character(0),
-  summary_fun = function() NULL,
-  eval_fun = function() NULL,
+  summary_fun = NULL,
+  eval_fun = NULL,
   exported = list(),
   model_print = character(0),
   arguments_print = character(0)
 )
 }
+\arguments{
+\item{modelfun}{A function used to fit models}
+
+\item{arguments}{A list of arguments for the fitting function}
+
+\item{data}{A data frame or list of data frames with target data}
+
+\item{rownames}{Logical, should row names be used as target IDs?}
+
+\item{metadata}{A data frame with sample information}
+
+\item{targetdata}{A data frame with target-wise information}
+
+\item{samplename}{Character for sample name identification}
+
+\item{additional_vars}{Character vector of additional variables}
+
+\item{summary_fun}{A function for summarizing models}
+
+\item{eval_fun}{A function for evaluating models}
+
+\item{exported}{A list of objects to export to workers}
+
+\item{model_print}{Character representation of model function}
+
+\item{arguments_print}{Character representation of arguments}
+
+\item{...}{Additional arguments (for S7 compatibility)}
+}
 \description{
 The seqwrap container is used to store and validate data input
 to the to seqwrap.
 }
-\section{Slots}{
-
-\describe{
-\item{\code{modelfun}}{A function used to fit models using data and meta data
-as input.}
-
-\item{\code{arguments}}{A list of arguments provided to the fitting function.}
-
-\item{\code{data}}{A data frame or a list of data frames}
-
-\item{\code{rownames}}{A logical indicating if row names should be used as target id}
-
-\item{\code{metadata}}{A data frame with sample information}
-
-\item{\code{targetdata}}{A data frame with target-wise information used in models}
-
-\item{\code{samplename}}{A character for sample name identification}
-
-\item{\code{additional_vars}}{A character vector of additional variables exported to}
-
-\item{\code{summary_fun}}{A function}
-
-\item{\code{eval_fun}}{A function}
-
-\item{\code{exported}}{A list}
-}}
-

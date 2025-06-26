@@ -8,6 +8,8 @@ seqwrap_check(x, verbose = TRUE)
 }
 \arguments{
 \item{x}{A swcontainer object}
+
+\item{verbose}{Logical, should the function print diagnostics? Default TRUE}
 }
 \value{
 A list of diagnostics

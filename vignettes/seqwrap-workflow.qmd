@@ -1,21 +1,12 @@
 ---
 title: "Flexible iterative fitting over omics-type data using the modeling algorithm of your choice"
-output: rmarkdown::html_vignette
-bibliography: references.bib
 author: "Daniel Hammarström"
-date: "2025-04-07"
+date: "2025-06-25"
 vignette: >
-  %\VignetteIndexEntry{seqwrap-workflow}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
-
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
-```
 
 ```{r setup}
 library(seqwrap)
@@ -43,7 +34,6 @@ We will start by simulating data from a simple experiment where count data has b
 
 library(seqwrap)
 library(glmmTMB)
-library(DHARMa)
 
 
 # Simulate data
@@ -55,7 +45,7 @@ dat <- seqwrap:::simcounts(n_genes = 1000,
                     sigma_1 = 2, 
                     b_0 = 1,
                     clusters = 25,
-                    overdispersion_min =c(1, 10))
+                    overdispersion_min = c(1, 10))
 
 # Calculate library sizes
 dat$metadata$libsize <- log(colSums(dat$data[, -1]) )
@@ -63,7 +53,7 @@ dat$metadata$libsize <- log(colSums(dat$data[, -1]) )
 
 ```
 
-Using `seqwrap_compose` we can populate a `swcontainer` object with all needed information to fit models. The `swcontainer` objects is basically a list with data, meta data and arguments that goes into the model algorithm. The `swcontainer` object also contain the desired modelfunction. 
+Using `seqwrap_compose` we can populate a `swcontainer` object with all needed information to fit models. The `swcontainer` objects is basically a list with data, meta data and arguments that goes into the model algorithm. The `swcontainer` object also contain reference to the desired model function. 
 
 ```{r}
 
@@ -85,130 +75,42 @@ swobject <- seqwrap_compose(
 ```
 
 
-We might want to add functions that summarise and evaluate the fitted model. Below we spefify two functions for these purposes. 
-
-```{r}
-
-sumfun <- function(x) {
-  # A function that returns a data frame with the coefficients
-  # from the fitted model
-  cond_effects <- data.frame(
-    cbind(
-      data.frame(
-        coef = rownames(coef(summary(x))$cond)
-      )
-    ),
-    coef(summary(x))$cond,
-    row.names = NULL
-  )
-
-  return(cond_effects)
-}
-
-
-evalfun <- function(x) {
-  # A function that returns a data frame with the p-values from
-  # the residual diagnostics
-  sim <- DHARMa::simulateResiduals(x, n = 1000)
-  unif <- DHARMa::testUniformity(sim, plot = FALSE)
-  results <- data.frame(
-    pval.unif = unif$p.value,
-  )
-
-  return(results)
-}
-
-
-
-
-
-```
-
-
 The `seqwrap` function will iterate over all targets in the data and fit the model and apply the summary and evaluation function to each model. Notice that we can use `return_models = TRUE` to save model in the output. Below we also use `subset = 1:10` to only do the first 10 targets. This is useful when we want to check if teh summary and evaluation functions work as intended. The `swobject` created above is updated when we supply ne w arguments to `seqwrap`.
 
 
 ```{r}
 
 models <- seqwrap(swobject, 
-                  summary_fun = sumfun,
-                  eval_fun = evalfun,
                   return_models = TRUE,
                   subset = 1:10) 
 
 ```
 
-As evident from the output we have 10 errors in the Evaluation function. Let's re-examine the evaluation function. 
+The resulting object can be summarized using `seqwrap_summarise`
 
 ```{r}
 
-# Getting 1 model for testing from preliminary models
-x <- models@models[[1]]
-
-evalfun(x)
+modelsum <- seqwrap_summarise(models)
 
 ```
 
-It turns out that a simple typo in the evaluation function caused the error. We can access the error message, or what `seqwrap` have managed to save e.g. using: 
+We have left the arguments `summary_fun` and `eval_fun` as NULL. This means that `seqwrap` will try to combine model parameter estimates and performance using `broom.mixed::`/`broom::tidy` and `DHARMa`. These evaluations are thought of as minimal summaries of the model and might not completly satisfy the needs of the user.
+
+The functions are exported from the seqwrap package and we can inspect them:
 
 ```{r}
-models@errors[1,6][[1]]
-```
-
-This might be needed when debugging the model fitting process or summary/evaluation functions.
-
-Let's update the evaluation function and start fitting the models. We will increase the number of cores to speed up the process. Here we will not save the models to save space. 
-
-```{r}
-
-evalfun2 <- function(x) {
-  # A function that returns a data frame with the p-values from
-  # the residual diagnostics
-  sim <- DHARMa::simulateResiduals(x, n = 1000)
-  unif <- DHARMa::testUniformity(sim, plot = FALSE)
-  results <- data.frame(
-    pval.unif = unif$p.value
-  )
-  
-}
-  
-
-models_final <- seqwrap(swobject, 
-                  summary_fun = sumfun,
-                  eval_fun = evalfun2,
-                  return_models = FALSE, 
-                  cores = 10)
-
-
-
-```
-
-The summary of the modelling process indicates that some targets where not included in the summaries, presumably the same targets that had warnings in `glmmTMB::glmmTMB`.
-
-
-The models can be conveniently summarised using the `seqwrap_summarise` function.
-
-```{r}
-
-
-summaries <- seqwrap_summarise(models_final)
-
-head(summaries$summaries)
-
-head(summaries$evaluations)
-
-
-
+seqwrap::generic_summary
 ```
 
 
 
+```{r}
+seqwrap::generic_evaluation
+```
 
+We encurage users to define their own custom functions. 
 
-
-
-
-
+## Defining custom summary and evaluation functions.
 
 
 
