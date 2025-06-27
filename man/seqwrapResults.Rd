@@ -9,20 +9,8 @@ seqwrapResults(
   models = NULL,
   summaries = NULL,
   evaluations = NULL,
-  errors = (function (.data = list(), row.names = NULL) 
- {
-     if (is.null(row.names))
-    {
-         list2DF(.data)
-     }
-     else {
-         out <- list2DF(.data,
-    length(row.names))
-         attr(out, "row.names") <- row.names
-         out
-     }
-
-    })(),
+  errors = structure(list(), names = character(0), row.names = integer(0), class =
+    "data.frame"),
   n = integer(0),
   k = integer(0),
   call_arguments = character(0),
@@ -30,6 +18,8 @@ seqwrapResults(
 )
 }
 \arguments{
+\item{.data}{A list containing initial data (inherited from S7::class_list)}
+
 \item{models}{A list of fitted model objects}
 
 \item{summaries}{A list of model summaries}
@@ -45,8 +35,6 @@ seqwrapResults(
 \item{call_arguments}{Character string of function arguments used}
 
 \item{call_engine}{Character string of modeling engine used}
-
-\item{...}{Additional arguments (for S7 compatibility)}
 }
 \description{
 seqwrapResults constructor function.

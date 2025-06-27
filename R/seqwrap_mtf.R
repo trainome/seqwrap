@@ -115,7 +115,7 @@ seqwrap_mtf <- function(
   arguments_final <- append(arg_list, list(data = df))
 
   for (i in seq_along(arguments_final)) {
-    if (class(arguments_final[[i]]) == "formula") {
+    if (inherits(arguments_final[[i]], "formula")){
       environment(arguments_final[[i]]) <- NULL
     }
   }

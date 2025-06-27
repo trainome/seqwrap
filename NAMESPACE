@@ -2,7 +2,6 @@
 
 export(generic_evaluation)
 export(generic_summary)
-export(geo_data)
 export(seqwrap)
 export(seqwrapResults)
 export(seqwrap_compose)

@@ -1,6 +1,5 @@
 # Defines custom property types for use in class constructors #
 
-
 # Define a modelfun property that correctly updates model_print
 modelfun_prop <- S7::new_property(
   validator = function(value) {
@@ -61,6 +60,7 @@ null_or_function <- S7::new_property(
 #'
 #' seqwrapResults constructor function.
 #'
+#' @param .data A list containing initial data (inherited from S7::class_list)
 #' @param models A list of fitted model objects
 #' @param summaries A list of model summaries
 #' @param evaluations A list of model evaluations
@@ -69,7 +69,6 @@ null_or_function <- S7::new_property(
 #' @param k Number of targets
 #' @param call_arguments Character string of function arguments used
 #' @param call_engine Character string of modeling engine used
-#' @param ... Additional arguments (for S7 compatibility)
 #'
 #'
 #' @export
@@ -80,13 +79,13 @@ seqwrapResults <- S7::new_class(
     models = null_or_list,
     summaries = null_or_list,
     evaluations = null_or_list,
-    errors = S7::class_data.frame,
-    n = S7::class_numeric,
-    k = S7::class_numeric,
-    call_arguments = S7::class_character,
-    call_engine = S7::class_character
+    errors = S7::new_property(S7::class_data.frame, default = data.frame()),
+    n = S7::new_property(S7::class_numeric, default = integer(0)),
+    k = S7::new_property(S7::class_numeric, default = integer(0)),
+    call_arguments = S7::new_property(S7::class_character, default = character(0)),
+    call_engine = S7::new_property(S7::class_character, default = character(0))
   )
- )
+)
 
 
 #' seqwrap container class
@@ -94,6 +93,7 @@ seqwrapResults <- S7::new_class(
 #' The seqwrap container is used to store and validate data input
 #' to the to seqwrap.
 #'
+#' @param .data A list containing initial data (inherited from S7::class_list)
 #' @param modelfun A function used to fit models
 #' @param arguments A list of arguments for the fitting function
 #' @param data A data frame or list of data frames with target data
@@ -107,7 +107,6 @@ seqwrapResults <- S7::new_class(
 #' @param exported A list of objects to export to workers
 #' @param model_print Character representation of model function
 #' @param arguments_print Character representation of arguments
-#' @param ... Additional arguments (for S7 compatibility)
 #'
 #' @export
 swcontainer <- S7::new_class(
@@ -117,16 +116,18 @@ swcontainer <- S7::new_class(
     modelfun = modelfun_prop,
     arguments = null_or_list,
     data = null_or_list,
-    rownames = S7::class_logical,
-    metadata = S7::class_data.frame,
+    rownames = S7::new_property(S7::class_logical, default = logical(0)),
+    metadata = S7::new_property(S7::class_data.frame, default = data.frame()),
     targetdata = null_or_list,
-    samplename = S7::class_character,
-    additional_vars = S7::class_character,
+    samplename = S7::new_property(S7::class_character, default = character(0)),
+    additional_vars = S7::new_property(S7::class_character,
+                                       default = character(0)),
     summary_fun = null_or_function,
     eval_fun = null_or_function,
-    exported = S7::class_list,
-    model_print = S7::class_character,
-    arguments_print = S7::class_character
+    exported = S7::new_property(S7::class_list, default = list()),
+    model_print = S7::new_property(S7::class_character, default = character(0)),
+    arguments_print = S7::new_property(S7::class_character,
+                                       default = character(0))
   )
 )
 
@@ -258,7 +259,7 @@ seqwrap_compose <- function(
     call_str <- match.call()
   }
 
-  if (class(x) == "DGEList") {
+  if (inherits(x, "DGEList")) {
     # Prepare count data from DGEList
 
     # If gene annotations are not available, use rownames
@@ -602,7 +603,7 @@ seqwrap <- function(
                                                           update = updates)
 
 
-  } else if (class(y) == "DGEList") {
+  } else if (inherits(y, "DGEList")) {
     # If the input is a DGEList object, compose a new container
     container <- seqwrap_compose(x = y)
 

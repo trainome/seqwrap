@@ -25,7 +25,7 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
   }
 
   # If the input is a data frame
-  if (class(dat) == "data.frame") {
+  if (inherits(dat, "data.frame")) {
 
     if (rownames) {
       cli::cli_inform("Using row names as target identification")
@@ -49,7 +49,7 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
 
   }
 
-  if (class(dat) == "list") {
+  if (inherits(dat, "list")) {
     if (rownames) {
       cli::cli_inform("Using row names as target identification")
       dat <- lapply(dat, function(x) {

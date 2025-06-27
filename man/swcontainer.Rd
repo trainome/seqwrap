@@ -10,20 +10,8 @@ swcontainer(
   arguments = NULL,
   data = NULL,
   rownames = logical(0),
-  metadata = (function (.data = list(), row.names = NULL) 
- {
-     if
-    (is.null(row.names)) {
-         list2DF(.data)
-     }
-     else {
-         out <-
-    list2DF(.data, length(row.names))
-         attr(out, "row.names") <- row.names
-      
-      out
-     }
- })(),
+  metadata = structure(list(), names = character(0), row.names = integer(0), class =
+    "data.frame"),
   targetdata = NULL,
   samplename = character(0),
   additional_vars = character(0),
@@ -35,6 +23,8 @@ swcontainer(
 )
 }
 \arguments{
+\item{.data}{A list containing initial data (inherited from S7::class_list)}
+
 \item{modelfun}{A function used to fit models}
 
 \item{arguments}{A list of arguments for the fitting function}
@@ -60,8 +50,6 @@ swcontainer(
 \item{model_print}{Character representation of model function}
 
 \item{arguments_print}{Character representation of arguments}
-
-\item{...}{Additional arguments (for S7 compatibility)}
 }
 \description{
 The seqwrap container is used to store and validate data input
