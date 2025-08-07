@@ -1,3 +1,9 @@
+# seqwrap 0.4.0
+
+## News
+
+-   Added support for `nlme::lme` and `nlme::gls`, see the vignette for the use of `additional_vars` when working with `nlme::gls`
+
 # seqwrap 0.2.0
 
 This update has focused on improving the workflow of using seqwrap. A new function (`seqwrap_compose`) allows for the user to collect all data needed to iterate over targets to fit models. `seqwrap` can still be specified using the same arguments, but can also use a `swcontainer` created with `seqwrap_compose`. In `seqwrap` we only need to specify e.g. the number of cores and return/save models.

@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
 Title: Item-by-item Iterative Model Fitting
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: 
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
@@ -31,6 +31,7 @@ Suggests:
     quarto,
     glmmTMB,
     lme4,
+    nlme,
     MASS,
     rmarkdown
 Config/testthat/edition: 3

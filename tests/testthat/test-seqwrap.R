@@ -66,7 +66,7 @@ test_that("seqwrap returns a list of models in the model
   test_glm <- seqwrap::seqwrap(
     swobject,
     modelfun = stats::glm,
-    arguments = list(
+    arguments = alist(
       formula = y ~ x,
       family = poisson(link = "log")
     ),
@@ -75,7 +75,25 @@ test_that("seqwrap returns a list of models in the model
   )
 
   expect_s3_class(test_glm@models[[1]], "glm")
-})
+
+
+
+  test_lme <- seqwrap::seqwrap(
+    swobject,
+    modelfun = nlme::lme,
+    arguments = alist(
+      fixed = y ~ x,
+      random = ~ 1 | cluster
+    ),
+    return_models = TRUE,
+    cores = 1
+  )
+
+
+  expect_s3_class(test_lme@models[[1]], "lme")
+
+
+          })
 
 
 test_that("Model summaries and evaluations returns expected results", {
