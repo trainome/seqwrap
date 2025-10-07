@@ -11,12 +11,20 @@ test_that("seqwrap returns a list of models when target data is used to pass
                                        n_genes = 10,
                                        clusters = 20)
 
+            # Target data created with variables
+            tardat <- data.frame(Prior = paste0("normal(",
+                                                rnorm(10, 2, 0.1),
+                                                ",",
+                                                rnorm(10, 0.3, 0.001),
+                                                ")"),
+                                 Class = rep("fixef_disp", 10),
+                                 Coef = rep(1, 10))
+
+
             swobject <- seqwrap::seqwrap_compose(
               modelfun = glmmTMB::glmmTMB,
               # Target data with multiple variables
-              targetdata = data.frame(Prior = rep("normal(2, 0.1)", 10),
-                                      Class = rep("fixef_disp", 10),
-                                      Coef = rep(1, 10)),
+              targetdata = tardat,
               arguments = alist(
                 formula = y ~
                   x +
@@ -36,9 +44,11 @@ test_that("seqwrap returns a list of models when target data is used to pass
 
 
 
-            test_glmmtmb <- seqwrap(swobject,
+            test_glmmtmb <- seqwrap::seqwrap(swobject,
                                              return_models = TRUE,
                                              cores = 1)
+
+
 
 
             expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
