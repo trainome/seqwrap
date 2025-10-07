@@ -48,11 +48,14 @@ test_that("seqwrap returns a list of models when target data is used to pass
                                              return_models = TRUE,
                                              cores = 1)
 
-
-
+            # Subset test
+            test_glmmtmb_subset <- seqwrap::seqwrap(swobject,
+                                             return_models = TRUE,
+                                             subset = 1:5,
+                                             cores = 1)
 
             expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
-
+            expect_s3_class(test_glmmtmb_subset@models[[1]], "glmmTMB")
 
           })
 

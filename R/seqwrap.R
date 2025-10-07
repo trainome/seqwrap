@@ -118,7 +118,7 @@ swcontainer <- S7::new_class(
     data = null_or_list,
     rownames = S7::new_property(S7::class_logical, default = logical(0)),
     metadata = S7::new_property(S7::class_data.frame, default = data.frame()),
-    targetdata = null_or_list,
+    targetdata = S7::new_property(S7::class_data.frame, default = data.frame()),
     samplename = S7::new_property(S7::class_character, default = character(0)),
     additional_vars = S7::new_property(S7::class_character,
                                        default = character(0)),
@@ -651,17 +651,16 @@ seqwrap <- function(
 
   # If subset is provided, subset the data
   if (!is.null(subset)) {
-    if (is.numeric(subset)) {
-      container@data <- container@data[subset, ]
-      if (!is.null(container@targetdata)) {
-        container@targetdata <- lapply(container@targetdata, function(x) {
-          x[subset]
-        })
-      }
-    } else {
-      stop("Subset must be a numeric vector")
+    # Subset the data
+    container@data <- container@data[subset, , drop = FALSE]
+
+    # Subset the targetdata if it is not NULL
+    if (!is.null(container@targetdata)) {
+      container@targetdata <- container@targetdata[subset, , drop = FALSE]
     }
   }
+
+
 
 
   # Check the container for consistency
