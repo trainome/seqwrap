@@ -1,9 +1,3 @@
-
-
-
-
-
-
 #' Simulate counts from a parallell groups design with three time-points
 #' and two groups.
 
@@ -15,23 +9,23 @@
 #' @param b0 Vector sd of the
 #' @param b1
 #' @param b2
-#'
+
 
 
 simcounts2 <- function(n1 = 5,
                        n2 = 5,
                        beta0 = c(2.3, 3),
-                       conditionA = c(0.2, 0.1),
-                       timet2 = c(0, 0),
-                       timet3 = c(0.5, 0.25),
-                       conditionA_timet2 = c(0.1, 0.2) ,
-                       conditionB_timet3 = c(0.5, 0.6)
+                       conditioncon = c(0.2, 0.1),
+                       timetime2 = c(0, 0),
+                       timetime3 = c(0.5, 0.25),
+                       conditioncon_timetime2 = c(0.1, 0.2) ,
+                       conditioncon_timetime3 = c(0.5, 0.6)
                        ) {
 
   # Generate design data
 
   len_beta0 <- length(beta0)
-  len_b1 <- length(conditioncon)
+  len_b1 <- length(conditionA)
   len_b2 <- length(timetime2)
   len_b3 <- length(timetime3)
   len_b4 <- length(conditioncon_timetime2)
@@ -53,7 +47,7 @@ simcounts2 <- function(n1 = 5,
                      ncol = 6)
 
 
-  # Treatment
+# Treatment
 
  design <-  rbind(
     expand.grid(id = paste0("B", 1:n2),
@@ -87,13 +81,6 @@ simcounts2 <- function(n1 = 5,
 
 
 mod <- simcounts2()
-
-
-
-
-
-
-
 
 #' Simulate counts from a simple experiment (paired or unpaierd) using
 #' Poisson or negative binomial distributions.
@@ -223,20 +210,7 @@ simcounts <- function(n_genes = 10,
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-#' Simulate counts from a simple experiment (paired or unpaierd) using
+#' Simulate counts from a simple experiment (paired or unpaired) using
 #' Poisson or negative binomial distributions.
 #'
 #'
