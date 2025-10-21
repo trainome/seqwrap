@@ -1,5 +1,4 @@
 #' Simulate counts from a parallel groups design with three time-points
-#' and two groups.
 #'
 #'
 #' Simulate gene counts from a Negative Binomial distribution conditional
@@ -160,7 +159,9 @@ simcounts2 <- function(n1 = 5,
   colnames(coef_mat) <- c("Intercept", "conditionB", "timet2",
                           "timet3", "conditionB:timet2", "conditionB:timet3")
 
+
 # Create the predictor data frame
+
  design <-  rbind(
 
    expand.grid(id = paste0("A", 1:n1),
@@ -245,5 +246,4 @@ simcounts2 <- function(n1 = 5,
 
 
 }
-
 

@@ -26,7 +26,7 @@ seqwrapResults(
 
 \item{evaluations}{A list of model evaluations}
 
-\item{errors}{A data frame of errors and warnings}
+\item{errors}{A data frame of errors and warnings. defaults to an empty dataframe}
 
 \item{n}{Number of samples}
 

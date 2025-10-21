@@ -2,8 +2,7 @@
 % Please edit documentation in R/simcounts2.R
 \name{simcounts2}
 \alias{simcounts2}
-\title{Simulate counts from a parallel groups design with three time-points
-and two groups.}
+\title{Simulate counts from a parallel groups design with three time-points}
 \usage{
 simcounts2(
   n1 = 5,
