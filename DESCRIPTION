@@ -45,4 +45,5 @@ Collate:
     'seqwrap.R'
     'seqwrap_mtf.R'
     'simcounts.R'
+    'simcounts2.R'
 VignetteBuilder: quarto

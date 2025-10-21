@@ -25,7 +25,7 @@ simcounts2 <- function(n1 = 5,
   # Generate design data
 
   len_beta0 <- length(beta0)
-  len_b1 <- length(conditionA)
+  len_b1 <- length(conditioncon)
   len_b2 <- length(timetime2)
   len_b3 <- length(timetime3)
   len_b4 <- length(conditioncon_timetime2)
