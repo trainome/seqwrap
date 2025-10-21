@@ -7,21 +7,26 @@
 #'
 #' @details
 #' The function simulation of counts from a conditional Negative Binomial
-#' distribution where the \deqn{\mu = \text{exp}(\eta)}, and
-#' \deqn{\eta = \beta_0 + \beta1 \text{conditionB} + \beta_2 \text{timet2} +
-#' \beta_3 \text{timet3} + \beta_4 \text{conditionB:timet2} +\beta_5
-#' \text{conditionB:timet3} + \text{offset}(\text{library size}) +
-#' \text{b}_0 + \text{b}_1 + \text{b}_2}.
-#' Varying effects are added as
-#' \deqn{\text{b}_l \sim \text{Normal}(0, \sigma_l)}. The library size is
+#' distribution:
+#' \deqn{y_{i[g]} \sim \text{NB}(\mu_{i[g]}, \phi_{[g]})}
+#' \deqn{\text{log}(\mu_{i[g]}) = \beta_0 + \beta1 \text{condition}_B + \\
+#'  \beta_2 \text{time}_{t2} + \beta_3 \text{time}_{t3} + \\
+#'  \beta_4 \text{condition}_B \times \text{time}_{t2} + \\
+#'  \beta_5 \text{condition}_B \times \text{time}_{t3} + \\
+#'  \text{offset}(\text{library size}) + \\
+#'  \text{b}_0 + \text{b}_1 \times \text{time}_{t2} +
+#'  \text{b}_2 \times \text{time}_{t3} }
+#' Varying effects are added as:
+#' \deqn{\text{b}_l \sim \text{Normal}(0, \sigma_l)}
+#' The library size is
 #' used as an offset for simulating data. Library sizes are simulated from a
 #' log-normal distribution or provided in library_size. In the simulation of
 #' counts, the library size is entered as offset after scaling to the median
 #' library size. Raw library sizes are included in the meta data.
 #' The dispersion parameter can be simulated from a model (lm or loess)
 #' provided to the function where the predictor variable should be
-#' \deqn{\text{log}(\mu)} and
-#' the outcome variable (dispersion) should be \deqn{\text{log}(\phi)}.
+#' \eqn{\text{log}(\mu)} and
+#' the outcome variable (dispersion) should be \eqn{\text{log}(\phi)}.
 #' If no model is provided, values are simulated from
 #' a log-normal distribution based on hard coded parameter values
 #' from an observed mean-dispersion relationship.
