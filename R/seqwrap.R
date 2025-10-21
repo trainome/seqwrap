@@ -64,7 +64,7 @@ null_or_function <- S7::new_property(
 #' @param models A list of fitted model objects
 #' @param summaries A list of model summaries
 #' @param evaluations A list of model evaluations
-#' @param errors A data frame of errors and warnings
+#' @param errors A data frame of errors and warnings. defaults to an empty dataframe
 #' @param n Number of samples
 #' @param k Number of targets
 #' @param call_arguments Character string of function arguments used

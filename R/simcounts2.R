@@ -7,8 +7,8 @@
 #' @param n1 Number clusters in group 1 (control)
 #' @param n2 Number of clusters in group 2 (treatment)
 #' @param b0 Vector sd of the
-#' @param b1
-#' @param b2
+#' @param b1 Vector
+#' @param b2 Vector
 
 
 
