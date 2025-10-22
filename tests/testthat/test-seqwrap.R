@@ -7,7 +7,7 @@ test_that("seqwrap returns a list of models in the model
           slot when asked to return models", {
 
     # Simulate data
-    dat <- seqwrap:::simcounts(seed = 1,
+    dat <- seqwrap::simcounts(seed = 1,
                                n_samples = 40,
                                n_genes = 10,
                                clusters = 20)

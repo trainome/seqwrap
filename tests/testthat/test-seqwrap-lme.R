@@ -8,7 +8,7 @@ library(seqwrap)
 test_that("seqwrap lme and gls models from the nlme package", {
 
             # Simulate data
-            dat <- seqwrap:::simcounts(seed = 1,
+            dat <- seqwrap::simcounts(seed = 1,
                                        n_samples = 40,
                                        n_genes = 10,
                                        clusters = 20)

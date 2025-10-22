@@ -70,6 +70,10 @@ on a two-condition, repeated measures experiment with three time points. The
 function is used for internal testing and tutorials.
 }
 \details{
+Fixed effects parameter values are specified as vectors (\code{beta0},
+\code{conditionB}, \code{timet2}, etc.) with the common vector length being the
+number of genes simulated.
+
 The function simulation of counts from a conditional Negative Binomial
 distribution:
 \deqn{y_{i[g]} \sim \text{NB}(\mu_{i[g]}, \phi_{[g]})}

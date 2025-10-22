@@ -44,7 +44,5 @@ the Poisson distrubution is used to simulate data.}
 \item{seed}{Random seed for reproducibility.}
 }
 \description{
-Simulate counts from a simple experiment (paired or unpaierd) using
-Poisson or negative binomial distributions.
+This function is used for internal testing and tutorials.
 }
-\keyword{internal}
