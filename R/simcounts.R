@@ -1,6 +1,10 @@
 #' Simulate counts from a simple experiment (paired or unpaierd) using
 #' Poisson or negative binomial distributions.
 #'
+#' This function is used for internal testing and tutorials.
+#'
+#'
+#'
 #'
 #' @param n_genes Number of genes to simulate.
 #' @param n_samples Number of samples to simulate.
@@ -17,7 +21,7 @@
 #' @importFrom stats rnorm runif rpois rnbinom
 #'
 #'
-#' @keywords internal
+#' @export
 simcounts <- function(n_genes = 10,
                       n_samples = 16,
                       beta_0 = 1,

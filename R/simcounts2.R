@@ -5,6 +5,10 @@
 #' on a two-condition, repeated measures experiment with three time points. The
 #' function is used for internal testing and tutorials.
 #'
+#' Fixed effects parameter values are specified as vectors (`beta0`,
+#' `conditionB`, `timet2`, etc.) with the common vector length being the
+#' number of genes simulated.
+#'
 #' @details
 #' The function simulation of counts from a conditional Negative Binomial
 #' distribution:
