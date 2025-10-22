@@ -8,7 +8,8 @@ test_that("simcounts2 returns the documented structure with defaults", {
   skip_on_cran() # simulation thus no need to be checked by CRAN
 
   #### Use variables so that we know nrows, n1 n2 etc?
-
+  n1 <- 5
+  n2 <- 5
 
   out <- simcounts2()
 
@@ -48,7 +49,7 @@ test_that("simcounts2 returns the documented structure with defaults", {
   # meta: data.frame with one row per sample
   expect_s3_class(out$meta, "data.frame")
   # expected samples: (n1 + n2) * 3 from defaults (5+5)*3 = 30
-  expect_equal(nrow(out$meta), (5 + 5) * 3)
+  expect_equal(nrow(out$meta), (n1 + n2) * 3)
 
   # The number of columns in counts should match number of samples
   expect_equal(ncol(out$counts[,-1]), nrow(out$meta))
