@@ -16,10 +16,10 @@ test_that("simcounts2 returns the documented structure with defaults", {
   expect_type(out, "list")
   expect_true(all(c("counts", "eta", "phi", "metadata") %in% names(out)))
 
-  # counts: matrix of non-negative integers; dimensions: genes x samples
-  expect_true(is.data.frame(out$counts)) #### Re-write with  expect_s3_class
-  expect_true(is.numeric(out$counts[,2]))     ########### Re-write with apply
-  expect_true(all(is.finite(out$counts))) ### Re-write with apply
+  # counts: dataframe of non-negative integers; dimensions: genes x samples
+  expect_s3_class(out$counts, "data.frame")
+  expect_true(all(apply(out$counts[,-1], 2, is.numeric)))
+  expect_true(all(apply(out$counts[,-1], 2, is.finite)))
   expect_true(all(out$counts >= 0))
 
 
@@ -51,7 +51,7 @@ test_that("simcounts2 returns the documented structure with defaults", {
   expect_equal(nrow(out$meta), (5 + 5) * 3)
 
   # The number of columns in counts should match number of samples
-  expect_equal(ncol(out$counts), nrow(out$meta))
+  expect_equal(ncol(out$counts[,-1]), nrow(out$meta))
 
   # The number of genes should match length(beta0) (default beta0 length = 2)
   expect_equal(nrow(out$counts), length(c(2.3, 3)))
