@@ -3,6 +3,7 @@
 ## News
 
 -   Added support for `nlme::lme` and `nlme::gls`, see the vignette for the use of `additional_vars` when working with `nlme::gls`
+-   `targetdata` now supports a list of data frames. Target-specific data frames are made available by their column names.
 
 # seqwrap 0.2.0
 

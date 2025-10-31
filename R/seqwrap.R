@@ -27,12 +27,12 @@ null_or_df <- S7::new_property(
 
 # Define a custom property type that accepts either data frame or a list
 df_or_list <- S7::new_property(
-  # The validator function checks if the value is NULL or a list
   validator = function(value) {
-    if (!(is.data.frame(value) || is.list(value))) {
-      "must be a data frame or a list"
+    if (!(is.null(value) || is.data.frame(value) || is.list(value))) {
+      "must be NULL, a data frame, or a list"
     }
-  }
+  },
+  default = NULL  # Change default to NULL
 )
 
 # Define a call property for use in the swcontainer function
@@ -118,7 +118,7 @@ swcontainer <- S7::new_class(
     data = null_or_list,
     rownames = S7::new_property(S7::class_logical, default = logical(0)),
     metadata = S7::new_property(S7::class_data.frame, default = data.frame()),
-    targetdata = S7::new_property(S7::class_data.frame, default = data.frame()),
+    targetdata = df_or_list,
     samplename = S7::new_property(S7::class_character, default = character(0)),
     additional_vars = S7::new_property(S7::class_character,
                                        default = character(0)),
@@ -208,10 +208,12 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' @param metadata A data frame with sample names (corresponding to column
 #' names in the target matrix)
 #' and design variables.
-#' @param targetdata A data frame with target-wise values (e.g. dispersion or
-#' start values) for each target. This is used in the model fitting function.
-#' Variables in the data frame should have matching names in the list of
-#' arguments.
+#' @param targetdata A data frame or a list with target-wise values
+#' (e.g. dispersion or start values) for each target. This data is made
+#' available for the model fitting function and can be used to specify target
+#' specific data in each iteration of seqwrap. When a data frame is provided
+#' each row corresponds to the target specific value. When a list is provided,
+#' each column of the data frame is available and can be called by name.
 #' @param samplename A character value indicating the variable by which
 #' metadata can merge with the target data. This defaults to "seq_sample_id"
 #' as this is used in the trainomeMetaData package.
@@ -319,6 +321,24 @@ seqwrap_compose <- function(
   if (!is.null(summary_fun)) container@summary_fun <- summary_fun
   if (!is.null(eval_fun)) container@eval_fun <- eval_fun
   if (!is.null(exported)) container@exported <- exported
+
+  # Validate targetdata
+  if (!is.null(container@data) && !is.null(container@targetdata)) {
+    n_data_rows <- nrow(container@data)
+    n_target_rows <- if (is.data.frame(container@targetdata)) {
+      nrow(container@targetdata)
+    } else if (is.list(container@targetdata)) {
+      length(container@targetdata)
+    }
+
+    if (n_data_rows != n_target_rows) {
+      cli::cli_abort(
+        "targetdata must have the same number of rows/elements ({n_target_rows})
+      as data has rows ({n_data_rows})"
+      )
+    }
+  }
+
 
   # Return the populated container
   return(container)
@@ -656,7 +676,11 @@ seqwrap <- function(
 
     # Subset the targetdata if it is not NULL
     if (!is.null(container@targetdata)) {
-      container@targetdata <- container@targetdata[subset, , drop = FALSE]
+      if (is.data.frame(container@targetdata)) {
+        container@targetdata <- container@targetdata[subset, , drop = FALSE]
+      } else if (is.list(container@targetdata)) {
+        container@targetdata <- container@targetdata[subset]
+      }
     }
   }
 

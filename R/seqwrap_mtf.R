@@ -400,27 +400,4 @@ seqwrap_mtf <- function(
 }
 
 
-#' A debug function
-#'
-#'
-#' @keywords internal
-fit_fun_debug <- function(fun, arg, vars = NULL) {
-  message("=== DEBUG START ===")
-  message("vars is NULL: ", is.null(vars))
-  if (!is.null(vars)) {
-    message("vars class: ", class(vars))
-    message("vars is data.frame: ", is.data.frame(vars))
-    if (is.data.frame(vars)) {
-      message("vars nrow: ", nrow(vars))
-      message("vars names: ", paste(names(vars), collapse = ", "))
-    }
-    message("vars length: ", length(vars))
-    message("vars names: ", paste(names(vars), collapse = ", "))
-    print(str(vars))
-  }
-  message("=== DEBUG END ===")
-
-  # Rest of the function...
-}
-
 

@@ -125,22 +125,18 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
   # Include targetwise data if it is not null
   if(!is.null(targetdat)) {
     # Target-wise data, common to all samples
-    # Check if input is a data frame or a vector
-    if (!is.vector(targetdat) && !is.data.frame(targetdat)) {
-      stop("Target-wise data must be either a vector of data frames or
-         a single data frame")
+    # Check if input is a data frame, vector, or list
+    if (!is.vector(targetdat) && !is.data.frame(targetdat) && !is.list(targetdat)) {
+      stop("Target-wise data must be either a vector, a data frame, or a list")
     }
 
-    # If the target-wise data is a vector, adding "target.wise"
-    # as heading
+    # If the target-wise data is a vector, adding "target.wise" as heading
     if (is.vector(targetdat)) {
       target.wise.dat <- data.frame(target.wise = targetdat)
-
       dfs.targetwise <- split(target.wise.dat, seq(nrow(target.wise.dat)))
       names(dfs.targetwise) <- rownames(target.wise.dat)
-
-
     }
+
     # If the target-wise data is a data frame, columns of the data available
     # data frame will be as is
     if (is.data.frame(targetdat)) {
@@ -148,14 +144,20 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
       names(dfs.targetwise) <- rownames(targetdat)
     }
 
+    # If the target-wise data is already a list, use it directly
+    if (is.list(targetdat) && !is.data.frame(targetdat)) {
+      dfs.targetwise <- targetdat
+      # Ensure names match the data
+      if (is.null(names(dfs.targetwise))) {
+        names(dfs.targetwise) <- names(dfs)
+      }
+    }
+
     # Combine into a list: target/sample data and target-wise data
     combined.dfs <- mapply(function(x, y) list(x, y),
                            dfs,
                            dfs.targetwise,
                            SIMPLIFY = FALSE)
-
-
-
   }
   # If targetdat is not provided, keep structure of the list anyway
   if (is.null(targetdat)) {

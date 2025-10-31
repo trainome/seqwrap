@@ -46,10 +46,12 @@ Defaults to FALSE.}
 names in the target matrix)
 and design variables.}
 
-\item{targetdata}{A data frame with target-wise values (e.g. dispersion or
-start values) for each target. This is used in the model fitting function.
-Variables in the data frame should have matching names in the list of
-arguments.}
+\item{targetdata}{A data frame or a list with target-wise values
+(e.g. dispersion or start values) for each target. This data is made
+available for the model fitting function and can be used to specify target
+specific data in each iteration of seqwrap. When a data frame is provided
+each row corresponds to the target specific value. When a list is provided,
+each column of the data frame is available and can be called by name.}
 
 \item{samplename}{A character value indicating the variable by which
 metadata can merge with the target data. This defaults to "seq_sample_id"
