@@ -5,13 +5,14 @@ library(seqwrap)
 
 
 test_that("simcounts2 returns the documented structure with defaults", {
-  skip_on_cran() # simulation thus no need to be checked by CRAN
+
+    skip_on_cran() # simulation thus no need to be checked by CRAN
 
   #### Use variables so that we know nrows, n1 n2 etc?
-  n1 <- 5
+  n1 <- 6
   n2 <- 5
 
-  out <- simcounts2()
+  out <- simcounts2(n1 = n1, n2 = n2)
 
   # The documented return is a list with (1) counts, (2) eta, (3) phi, (4) meta
   expect_type(out, "list")

@@ -56,7 +56,6 @@
 #' @param lib_size_mean Mean of the distribution of library sizes.
 #' @param lib_size_cv Coefficient of variation for the distribution of library
 #' sizes.
-#' @param seed Random seed.
 #' @importFrom stats rnorm runif rnbinom
 #' @return A list of (1) simulated counts, (2) the eta, and (3) phi values used
 #' for simulating data, and (4) the meta data data frame.
@@ -79,10 +78,12 @@ simcounts2 <- function(n1 = 5,
                        lib_size_mean = 1e6,
                        lib_size_cv = 0.3,
                        seed = 1
-                       ) {
+) {
+
+  # Set random seed
+  set.seed(seed)
 
   # Generate design data
-
   len_beta0 <- length(beta0)
   len_b1 <- length(conditionB)
   len_b2 <- length(timet2)
@@ -91,11 +92,11 @@ simcounts2 <- function(n1 = 5,
   len_b5 <- length(conditionB_timet3)
 
   # Check that all are similar length
- if(!all(sapply(list(len_b1, len_b2, len_b3, len_b4, len_b5),
-                FUN = identical, len_beta0))) {
-   stop("All parameter values (conditionB, timet2, ...)
+  if(!all(sapply(list(len_b1, len_b2, len_b3, len_b4, len_b5),
+                 FUN = identical, len_beta0))) {
+    stop("All parameter values (conditionB, timet2, ...)
         must be of the same length.")
- }
+  }
 
   # Generate library sizes
   if(is.null(library_size)) {
@@ -106,11 +107,12 @@ simcounts2 <- function(n1 = 5,
     mu_log <- log(lib_size_mean) - sigma_log^2/2
 
     library_size <- round(exp(rnorm(n_samples, mu_log, sigma_log)))
+  } else {
+    # Validate library size length
+    if(length(library_size) != (n1 + n2) * 3) {
+      stop("library_size must have length (n1 + n2) * 3")
+    }
   }
-
-
-
-
 
   # A function to predict phi from model parameters
   # or use hard-coded values from approximation
@@ -131,7 +133,6 @@ simcounts2 <- function(n1 = 5,
     }
 
     return(phi)
-
   }
 
   # A function to extract the sigma from a phi-prediction model
@@ -152,10 +153,6 @@ simcounts2 <- function(n1 = 5,
     return(phi_sigma)
   }
 
-
-
-
-
   # The coefficient matrix contain all parameter values collected
   # row-wise.
   coef_mat <- matrix(c(beta0,
@@ -168,91 +165,73 @@ simcounts2 <- function(n1 = 5,
   colnames(coef_mat) <- c("Intercept", "conditionB", "timet2",
                           "timet3", "conditionB:timet2", "conditionB:timet3")
 
-
-# Create the predictor data frame
-
- design <-  rbind(
-
-   expand.grid(id = paste0("A", 1:n1),
-               time = c("t1", "t2", "t3"),
-               condition = c("A")),
-
+  # Create the predictor data frame
+  design <-  rbind(
+    expand.grid(id = paste0("A", 1:n1),
+                time = c("t1", "t2", "t3"),
+                condition = c("A")),
     expand.grid(id = paste0("B", 1:n2),
-              time = c("t1", "t2", "t3"),
-              condition = c("B"))
+                time = c("t1", "t2", "t3"),
+                condition = c("B"))
+  )
 
+  # Adding library sizes to the design
+  design$library_size <- library_size
+
+  # Create a model prediction matrix
+  mod_mat <- model.matrix(~ condition * time, data = design)
+
+  # Function to simulate one gene
+  simulate_one_gene <- function(i) {
+
+    # Combine fixed effects to get the eta
+    eta_fixed <- mod_mat %*% coef_mat[i,]
+
+    # Add library size offset
+    offset <- log(library_size / median(library_size))
+
+    # Adding varying effects (non-correlated)
+    b_0 <- c(rep(rnorm(n1, 0, b0[i]), 3), rep(rnorm(n2, 0, b0[i]), 3))
+    b_1 <- c(rep(0, n1), rnorm(n1, 0, b1[i]), rep(0, n1),
+             rep(0, n2), rnorm(n2, 0, b1[i]), rep(0, n2))
+    b_2 <- c(rep(0, n1), rep(0, n1), rnorm(n1, 0, b2[i]),
+             rep(0, n2), rep(0, n2), rnorm(n2, 0, b2[i]))
+
+    # Combining all parameters into the linear predictor eta.
+    eta_full <- eta_fixed + offset + b_0 + b_1 + b_2
+
+    # Get the phi from predictive model and combine with phi_sigma
+    log_phi <- phi_predict(phi_model, log(mean(exp(eta_fixed))))
+    log_phi_sd <- phi_sigma(phi_model)
+
+    phi_g <- exp(rnorm(1, log_phi, log_phi_sd))
+
+    # Simulate from the Negative binomial distribution
+    counts <- rnbinom(n = length(eta_full), size = phi_g, mu = exp(eta_full))
+    names(counts) <- paste0(design$id, "_", design$time)
+    names(eta_full) <- paste0(design$id, "_", design$time)
+
+    # Return as list
+    list(
+      counts = cbind(data.frame(gene = i), t(counts)),
+      eta = cbind(data.frame(gene = i), t(eta_full)),
+      phi = cbind(data.frame(gene = i), phi_g)
     )
+  }
 
- # Adding library sizes to the design
- design$library_size <- library_size
+  # Apply simulation to all genes
+  results <- lapply(seq_along(beta0), simulate_one_gene)
 
- # Create a model prediction matrix
- mod_mat <- model.matrix(~ condition * time, data = design)
+  # Extract and combine results
+  counts <- do.call(rbind, lapply(results, `[[`, "counts"))
+  eta <- do.call(rbind, lapply(results, `[[`, "eta"))
+  phi <- do.call(rbind, lapply(results, `[[`, "phi"))
 
- # Calculate mean responses. The model matrix is multiplied with
- # the parameter values for each gene.
- # The parameter values are determined by the linear predictor eta and
- # includes the varying effects (eta_full).
+  # Add sample ID to design
+  design$seq_sample_id <- paste0(design$id, "_", design$time)
 
- # From the loop below we will store the phi, eta_full, parameter values
- # and simulated counts
-
- # Counts
- counts_list <- list()
- # eta
- eta_list <- list()
- # phi
- phi_list <- list()
-
- for(i in seq_along(beta0)) {
-
-  # Combine fixed effects to get the eta
-  eta_fixed <-  mod_mat %*% coef_mat[i,]
-
-  # Add library size offset
-  offset <- log(library_size / median(library_size))
-
-
-  # Adding varying effects (non-correlated)
-  b_0 <- c(rep(rnorm(n1, 0, b0[i]), 3), rep(rnorm(n2, 0, b0[i]), 3))
-  b_1 <- c(rep(0, n1), rnorm(n1, 0, b1[i]), rep(0, n1),
-           rep(0, n2), rnorm(n2, 0, b1[i]), rep(0, n2))
-  b_2 <- c(rep(0, n1), rep(0, n1), rnorm(n1, 0, b2[i]),
-           rep(0, n2), rep(0, n2), rnorm(n2, 0, b2[i]))
-
-  # Combining all parameters into the linear predictor eta.
-  eta_full <- eta_fixed + offset + b_0 + b_1 + b_2
-
-  # Get the phi from predictive model and combine with phi_sigma
-  log_phi <- phi_predict(phi_model, log(mean(exp(eta_fixed))))
-  log_phi_sd <- phi_sigma(phi_model)
-
-  phi_g <- exp(rnorm(1, log_phi, log_phi_sd))
-
-  # Simulate from the Negative binomial distribution
-  counts <- rnbinom(n = length(eta_full), size = phi_g, mu = exp(eta_full))
-  names(counts) <- paste0(design$id,"_",design$time)
-  names(eta_full) <- paste0(design$id,"_",design$time)
-  # Collect variables
-  counts_list[[i]] <- cbind(data.frame(gene = i), t(counts))
-  eta_list[[i]] <- cbind(data.frame(gene = i), t(eta_full))
-  phi_list[[i]] <- cbind(data.frame(gene = i), phi_g)
-
-
- }
-
- # Combine all list and return values
- counts <- do.call(rbind, counts_list)
- eta <- do.call(rbind, eta_list)
- phi <- do.call(rbind, phi_list)
- design$seq_sample_id <- paste0(design$id,"_",design$time)
-
- return(list(counts = counts,
-             eta = eta,
-             phi = phi,
-             metadata = design))
-
-
-
+  return(list(counts = counts,
+              eta = eta,
+              phi = phi,
+              metadata = design))
 }
-
