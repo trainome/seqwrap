@@ -56,6 +56,8 @@
 #' @param lib_size_mean Mean of the distribution of library sizes.
 #' @param lib_size_cv Coefficient of variation for the distribution of library
 #' sizes.
+#' @param max_prop The maximum count for a single observation as a proportion
+#' of the library size.
 #' @importFrom stats rnorm runif rnbinom
 #' @return A list of (1) simulated counts, (2) the eta, and (3) phi values used
 #' for simulating data, and (4) the meta data data frame.
@@ -71,17 +73,16 @@ simcounts2 <- function(n1 = 5,
                        conditionB_timet2 = c(0.1, 0.2) ,
                        conditionB_timet3 = c(0.5, 0.6),
                        b0 = c(1, 1),
-                       b1 = c(0.5, 0.5),
-                       b2 = c(0.2, 0.2),
+                       b1 = c(0, 0),
+                       b2 = c(0, 0),
                        phi_model = NULL,
                        library_size = NULL,
                        lib_size_mean = 1e6,
                        lib_size_cv = 0.3,
-                       seed = 1
+                       max_prop = 0.02
 ) {
 
-  # Set random seed
-  set.seed(seed)
+
 
   # Generate design data
   len_beta0 <- length(beta0)
@@ -199,6 +200,10 @@ simcounts2 <- function(n1 = 5,
 
     # Combining all parameters into the linear predictor eta.
     eta_full <- eta_fixed + offset + b_0 + b_1 + b_2
+
+    # Cap the eta_full at max_prop of median library size
+    eta_full <- pmin(eta_full, log(median(library_size) * max_prop))
+
 
     # Get the phi from predictive model and combine with phi_sigma
     log_phi <- phi_predict(phi_model, log(mean(exp(eta_fixed))))

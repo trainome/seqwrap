@@ -14,13 +14,13 @@ simcounts2(
   conditionB_timet2 = c(0.1, 0.2),
   conditionB_timet3 = c(0.5, 0.6),
   b0 = c(1, 1),
-  b1 = c(0.5, 0.5),
-  b2 = c(0.2, 0.2),
+  b1 = c(0, 0),
+  b2 = c(0, 0),
   phi_model = NULL,
   library_size = NULL,
   lib_size_mean = 1e+06,
   lib_size_cv = 0.3,
-  seed = 1
+  max_prop = 0.02
 )
 }
 \arguments{
@@ -58,7 +58,8 @@ or NULL if library sizes are to be simulated}
 \item{lib_size_cv}{Coefficient of variation for the distribution of library
 sizes.}
 
-\item{seed}{Random seed.}
+\item{max_prop}{The maximum count for a single observation as a proportion
+of the library size.}
 }
 \value{
 A list of (1) simulated counts, (2) the eta, and (3) phi values used
