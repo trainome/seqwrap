@@ -721,10 +721,13 @@ seqwrap <- function(
   call_engine <- deparse(funcall$modelfun)
 
   # Print pre-fit information
+
+  if (verbose) {
   cli::cli_h1("seqwrap")
   cli::cli_inform(
     "Initiating clusters for parallel processing with {num_cores} core{?s}"
   )
+  }
 
   ## Applying the model function in parallel ##
 
@@ -768,7 +771,11 @@ seqwrap <- function(
   )
 
   # Parallel execution of the fitting process
-  cli::cli_inform("Merging and modelling data")
+  if (verbose) {
+    cli::cli_inform("Merging and modelling data")
+  }
+
+
   results <- pbapply::pblapply(
     cl = cl,
     X = dfs,
@@ -815,7 +822,8 @@ seqwrap <- function(
   errors_sum <- sapply(errors, function(x) sum(!sapply(x, is.null)))
 
   ## Evaluate errors for the resulting print function
-  cli::cli_inform("Completed model fitting and evaluation")
+  if (verbose) {
+   cli::cli_inform("Completed model fitting and evaluation")
 
   if (any(errors_sum[-1] > 0)) {
     cli::cli_alert_info("Some targets had associated errors or warnings")
@@ -834,6 +842,7 @@ seqwrap <- function(
       "*" = "Evaluation function (warnings): n = {errors_sum[7]}
       ({round(100 * (errors_sum[7]/k))}%)"
     ))
+  }
   }
 
   ## Combine the results into a seqwrapResults

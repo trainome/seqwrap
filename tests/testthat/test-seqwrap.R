@@ -171,3 +171,46 @@ test_that("Model summaries and evaluations returns expected results", {
 
   # TODO add tests for the other model types
 })
+
+
+test_that("seqwrap is silent when setting verbose = FALSE", {
+  # Simulate data
+  dat <- seqwrap::simcounts(seed = 1,
+                            n_samples = 40,
+                            n_genes = 10,
+                            clusters = 20)
+
+  swobject <- seqwrap::seqwrap_compose(
+    modelfun = glmmTMB::glmmTMB,
+    arguments = list(
+      formula = y ~
+        x +
+        (1 | cluster),
+      family = glmmTMB::nbinom1
+    ),
+    data = dat$data,
+    metadata = dat$metadata,
+    samplename = "sample",
+    additional_vars = NULL
+  )
+
+
+  expect_no_message({
+    test_glmmtmb <- seqwrap::seqwrap(swobject,
+                                     return_models = TRUE,
+                                     verbose = FALSE,
+                                     cores = 1)
+    })
+
+
+  expect_no_message({
+    temp <-  seqwrap_summarise(test_glmmtmb, verbose = FALSE)
+    })
+
+
+          })
+
+
+
+
+
