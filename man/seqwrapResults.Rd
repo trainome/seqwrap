@@ -14,7 +14,8 @@ seqwrapResults(
   n = integer(0),
   k = integer(0),
   call_arguments = character(0),
-  call_engine = character(0)
+  call_engine = character(0),
+  elapsed_time = numeric(0)
 )
 }
 \arguments{
@@ -35,6 +36,9 @@ seqwrapResults(
 \item{call_arguments}{Character string of function arguments used}
 
 \item{call_engine}{Character string of modeling engine used}
+
+\item{elapsed_time}{An proc.time() object giving the time needed to complete
+iterative model fitting.}
 }
 \description{
 seqwrapResults constructor function.

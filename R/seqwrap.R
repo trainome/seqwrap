@@ -69,6 +69,8 @@ null_or_function <- S7::new_property(
 #' @param k Number of targets
 #' @param call_arguments Character string of function arguments used
 #' @param call_engine Character string of modeling engine used
+#' @param elapsed_time An proc.time() object giving the time needed to complete
+#' iterative model fitting.
 #'
 #'
 #' @export
@@ -83,7 +85,8 @@ seqwrapResults <- S7::new_class(
     n = S7::new_property(S7::class_numeric, default = integer(0)),
     k = S7::new_property(S7::class_numeric, default = integer(0)),
     call_arguments = S7::new_property(S7::class_character, default = character(0)),
-    call_engine = S7::new_property(S7::class_character, default = character(0))
+    call_engine = S7::new_property(S7::class_character, default = character(0)),
+    elapsed_time = S7::new_property(S7::class_numeric, default = numeric(0))
   )
 )
 
@@ -601,6 +604,10 @@ seqwrap <- function(
   cores = 1,
   verbose = TRUE
 ) {
+
+  # Elapsed time
+  start_time <- proc.time()
+
   # If the input is a swcontainer object, use the object
   if (S7::S7_inherits(y, seqwrap::swcontainer)) {
     container <- y
@@ -821,9 +828,20 @@ seqwrap <- function(
   # Count non-null values in the error/warning data frame
   errors_sum <- sapply(errors, function(x) sum(!sapply(x, is.null)))
 
+  # Track the elapsed time
+  elapsed_time <- proc.time() - start_time
+  sys_time <- Sys.time()
+
+
+
   ## Evaluate errors for the resulting print function
   if (verbose) {
-   cli::cli_inform("Completed model fitting and evaluation")
+   cli::cli_inform({
+     paste0(format(sys_time, "%b %d %Y %X"),
+     ": Completed model fitting and evaluation. Elapsed time was ",
+     round(elapsed_time[[3]] / 60, 2),
+     " minutes")
+     })
 
   if (any(errors_sum[-1] > 0)) {
     cli::cli_alert_info("Some targets had associated errors or warnings")
@@ -854,7 +872,8 @@ seqwrap <- function(
     n = n,
     k = k,
     call_arguments = container@arguments_print,
-    call_engine = container@model_print
+    call_engine = container@model_print,
+    elapsed_time = elapsed_time
   )
 
   return(comb_results)
