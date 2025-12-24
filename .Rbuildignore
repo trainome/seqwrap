@@ -1,3 +1,12 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^\.pre-commit-config\.yaml$
+^README\.Rmd$
+^README\.qmd$
+^LICENSE\.md$
+^\.github$
+^raw-data$
+^data-raw$
+^dev$
+^\.DS_Store$
+^\.gitignore$
+^\.git$

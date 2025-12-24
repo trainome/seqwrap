@@ -1,7 +1,10 @@
+aaa
 al
+alist
 analysed
 aut
 BugReports
+cli
 colums
 Config
 cre
@@ -45,6 +48,7 @@ README
 Roxygen
 RoxygenNote
 seqwrap
+seqwrapResults
 summarise
 testthat
 tibble
