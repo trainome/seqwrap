@@ -41,10 +41,18 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
     # Split the data into a list of data frames for each target
     dfs <- split(dat[, seq_len(ncol(dat))[-1]], dat[, 1])
 
-    dfs <- lapply(dfs, function(x) {
+    # Check for duplicate targets and provide informative error
+    dfs <- lapply(names(dfs), function(target_name) {
+      x <- dfs[[target_name]]
+      if (nrow(x) > 1) {
+        stop("Duplicate target found: '", target_name, "' appears ", nrow(x),
+             " times in the first column. Each target should appear only once.",
+             call. = FALSE)
+      }
       rownames(x) <- "y"
       return(x)
     })
+    names(dfs) <- names(split(dat[, seq_len(ncol(dat))[-1]], dat[, 1]))
 
 
   }
