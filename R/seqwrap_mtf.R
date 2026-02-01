@@ -283,17 +283,14 @@ seqwrap_mtf <- function(
     (is.character(ffun) && ffun == "nlme::lme") ||
     any(grepl("lme$", deparse(ffun)))
 
-  # Handle formula environments differently based on function
+  # Handle formula environments to ensure proper evaluation
   for (i in seq_along(arguments_final)) {
     if (inherits(arguments_final[[i]], "formula")) {
-      if (!is_lme) {
-        # For non-lme functions, remove environment as before
-        environment(arguments_final[[i]]) <- NULL
-      } else {
-        # For lme, ensure the environment is set correctly
-        environment(arguments_final[[i]]) <- environment()
-      }
-    } else if (is.list(arguments_final[[i]]) && is_lme) {
+      # Set formula environment to current environment for all functions
+      # This is needed for glmmTMB with complex random effects (e.g., ||)
+      # and for lme compatibility
+      environment(arguments_final[[i]]) <- environment()
+    } else if (is.list(arguments_final[[i]])) {
       # Handle nested formulas in lists (like in random effects)
       for (j in seq_along(arguments_final[[i]])) {
         if (inherits(arguments_final[[i]][[j]], "formula")) {

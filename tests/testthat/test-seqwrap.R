@@ -5,52 +5,41 @@ library(seqwrap)
 
 test_that("seqwrap returns a list of models in the model
           slot when asked to return models", {
+  # Simulate data
+  dat <- seqwrap::simcounts(
+    seed = 1,
+    n_samples = 40,
+    n_genes = 10,
+    clusters = 20
+  )
 
-    # Simulate data
-    dat <- seqwrap::simcounts(seed = 1,
-                               n_samples = 40,
-                               n_genes = 10,
-                               clusters = 20)
-
-    swobject <- seqwrap::seqwrap_compose(
-      modelfun = glmmTMB::glmmTMB,
-      arguments = list(
-        formula = y ~
-          x +
+  swobject <- seqwrap::seqwrap_compose(
+    modelfun = glmmTMB::glmmTMB,
+    arguments = list(
+      formula = y ~
+        x +
           (1 | cluster),
-        family = glmmTMB::nbinom1
-      ),
-      data = dat$data,
-      metadata = dat$metadata,
-      samplename = "sample",
-      additional_vars = NULL
-    )
+      family = glmmTMB::nbinom1
+    ),
+    data = dat$data,
+    metadata = dat$metadata,
+    samplename = "sample",
+    additional_vars = NULL
+  )
 
+  test_glmmtmb <- seqwrap::seqwrap(swobject, return_models = TRUE, cores = 10)
 
-
-
-
-    test_glmmtmb <- seqwrap::seqwrap(swobject,
-                                     return_models = TRUE,
-                                     cores = 10)
-
-
-    expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
+  expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
 
   test_glmnb <- seqwrap::seqwrap(
     swobject,
     arguments = list(formula = y ~ x),
     modelfun = MASS::glm.nb,
     return_models = TRUE,
-    cores = 1)
+    cores = 1
+  )
 
   expect_s3_class(test_glmnb@models[[1]], c("glm", "lm", "negbin"))
-
-
-
-
-
-
 
   test_lm <- seqwrap::seqwrap(
     swobject,
@@ -75,8 +64,6 @@ test_that("seqwrap returns a list of models in the model
 
   expect_s3_class(test_glm@models[[1]], "glm")
 
-
-
   test_lme <- seqwrap::seqwrap(
     swobject,
     modelfun = nlme::lme,
@@ -88,11 +75,8 @@ test_that("seqwrap returns a list of models in the model
     cores = 1
   )
 
-
   expect_s3_class(test_lme@models[[1]], "lme")
-
-
-          })
+})
 
 
 test_that("Model summaries and evaluations returns expected results", {
@@ -130,19 +114,20 @@ test_that("Model summaries and evaluations returns expected results", {
     ))
   }
 
-
   # Simulate data
-  dat <- seqwrap:::simcounts(seed = 1,
-                             n_samples = 40,
-                             n_genes = 10,
-                             clusters = 20)
+  dat <- seqwrap:::simcounts(
+    seed = 1,
+    n_samples = 40,
+    n_genes = 10,
+    clusters = 20
+  )
 
   swobject <- seqwrap::seqwrap_compose(
     modelfun = glmmTMB::glmmTMB,
     arguments = list(
       formula = y ~
         x +
-        (1 | cluster),
+          (1 | cluster),
       family = glmmTMB::nbinom1
     ),
     data = dat$data,
@@ -150,8 +135,6 @@ test_that("Model summaries and evaluations returns expected results", {
     samplename = "sample",
     additional_vars = NULL
   )
-
-
 
   testsummary_glmmtmb <- seqwrap::seqwrap(
     swobject,
@@ -174,17 +157,19 @@ test_that("Model summaries and evaluations returns expected results", {
 
 test_that("seqwrap is silent when setting verbose = FALSE", {
   # Simulate data
-  dat <- seqwrap::simcounts(seed = 1,
-                            n_samples = 40,
-                            n_genes = 10,
-                            clusters = 20)
+  dat <- seqwrap::simcounts(
+    seed = 1,
+    n_samples = 40,
+    n_genes = 10,
+    clusters = 20
+  )
 
   swobject <- seqwrap::seqwrap_compose(
     modelfun = glmmTMB::glmmTMB,
     arguments = list(
       formula = y ~
         x +
-        (1 | cluster),
+          (1 | cluster),
       family = glmmTMB::nbinom1
     ),
     data = dat$data,
@@ -193,23 +178,71 @@ test_that("seqwrap is silent when setting verbose = FALSE", {
     additional_vars = NULL
   )
 
+  expect_no_message({
+    test_glmmtmb <- seqwrap::seqwrap(
+      swobject,
+      return_models = TRUE,
+      verbose = FALSE,
+      cores = 1
+    )
+  })
 
   expect_no_message({
-    test_glmmtmb <- seqwrap::seqwrap(swobject,
-                                     return_models = TRUE,
-                                     verbose = FALSE,
-                                     cores = 1)
-    })
+    temp <- seqwrap_summarise(test_glmmtmb, verbose = FALSE)
+  })
+})
 
+
+test_that("seqwrap can handle complex random effects", {
+  # Simulate data
+  dat1 <- seqwrap::simcounts(
+    seed = 1,
+    n_samples = 160,
+    n_genes = 10,
+    clusters = 80
+  )
+  dat2 <- seqwrap::simcounts(
+    seed = 1,
+    n_samples = 40,
+    n_genes = 10,
+    clusters = 20
+  )
+
+  metdata1 <- dat1$metadata |>
+    dplyr::filter(cluster %in% paste0("c", 60:100)) |>
+    dplyr::mutate(study = "s1", cluster = paste0("A", cluster))
+
+  count1 <- dat1$data |>
+    dplyr::select(targetid, tidyselect::matches(metdata1$sample))
+
+  data <- cbind(count1, dat2$data[, -1])
+  metadata <- metdata1 |>
+    dplyr::bind_rows(
+      dat2$metadata |>
+        dplyr::mutate(study = "s2")
+    )
+
+  swobject <- seqwrap::seqwrap_compose(
+    modelfun = glmmTMB::glmmTMB,
+    arguments = alist(
+      formula = y ~ x + (1 | cluster) + (1 + x || study),
+      family = glmmTMB::nbinom1
+    ),
+    data = data,
+    metadata = metadata,
+    samplename = "sample",
+    additional_vars = NULL
+  )
 
   expect_no_message({
-    temp <-  seqwrap_summarise(test_glmmtmb, verbose = FALSE)
-    })
+    test_glmmtmb <- seqwrap::seqwrap(
+      swobject,
+      return_models = TRUE,
+      verbose = FALSE,
+      cores = 1
+    )
+  })
 
-
-          })
-
-
-
-
-
+  ## Check that all models are fitted
+  expect_equal(length(test_glmmtmb@models), 10)
+})
