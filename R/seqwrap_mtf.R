@@ -13,9 +13,21 @@ fit_fun <- function(fun, arg, vars = NULL) {
     # Create an evaluation environment with the variables
     eval_env <- list2env(vars, parent = environment())
 
+    # Helper function to check if x is a formula or unevaluated formula expression
+    is_formula_expr <- function(x) {
+      # Check for actual formula object
+      if (inherits(x, "formula")) return(TRUE)
+      # Check for unevaluated formula expression (call with ~ operator)
+      if (is.call(x) && length(x) >= 1 && identical(x[[1]], as.symbol("~"))) return(TRUE)
+      return(FALSE)
+    }
+
     # Recursive function to replace and evaluate
     replace_and_eval <- function(x, env) {
-      if (is.symbol(x)) {
+      if (is_formula_expr(x)) {
+        # Don't replace variables inside formulas - they reference data columns
+        return(x)
+      } else if (is.symbol(x)) {
         # If it's a symbol in our vars, return its value
         var_name <- as.character(x)
         if (var_name %in% names(vars)) {
@@ -77,6 +89,15 @@ fit_fun_lme <- function(fun, arg, vars = NULL) {
       eval_env[[var_name]] <- vars[[var_name]]
     }
 
+    # Helper function to check if x is a formula or unevaluated formula expression
+    is_formula_expr <- function(x) {
+      # Check for actual formula object
+      if (inherits(x, "formula")) return(TRUE)
+      # Check for unevaluated formula expression (call with ~ operator)
+      if (is.call(x) && length(x) >= 1 && identical(x[[1]], as.symbol("~"))) return(TRUE)
+      return(FALSE)
+    }
+
     # Recursive function to replace and evaluate
     replace_and_eval <- function(x, env) {
       if (is.symbol(x)) {
@@ -85,6 +106,9 @@ fit_fun_lme <- function(fun, arg, vars = NULL) {
         if (var_name %in% names(vars)) {
           return(vars[[var_name]])
         }
+        return(x)
+      } else if (is_formula_expr(x)) {
+        # Don't replace variables inside formulas - they reference data columns
         return(x)
       } else if (is.call(x)) {
         # Process each element of the call recursively first
