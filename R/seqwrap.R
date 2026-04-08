@@ -32,8 +32,11 @@ df_or_list <- S7::new_property(
       "must be NULL, a data frame, or a list"
     }
   },
-  default = NULL  # Change default to NULL
+  default = NULL # Change default to NULL
 )
+
+# Empty data frame constant to avoid codoc mismatch from deparsing data.frame()
+.empty_df <- data.frame()
 
 # Define a call property for use in the swcontainer function
 call_prop <- S7::new_property(
@@ -51,9 +54,6 @@ null_or_function <- S7::new_property(
     if (!(is.null(value) || is.function(value))) "must be NULL or a function"
   }
 )
-
-
-
 
 
 #' seqwrapResults class
@@ -81,10 +81,13 @@ seqwrapResults <- S7::new_class(
     models = null_or_list,
     summaries = null_or_list,
     evaluations = null_or_list,
-    errors = S7::new_property(S7::class_data.frame, default = data.frame()),
+    errors = S7::new_property(S7::class_data.frame, default = .empty_df),
     n = S7::new_property(S7::class_numeric, default = integer(0)),
     k = S7::new_property(S7::class_numeric, default = integer(0)),
-    call_arguments = S7::new_property(S7::class_character, default = character(0)),
+    call_arguments = S7::new_property(
+      S7::class_character,
+      default = character(0)
+    ),
     call_engine = S7::new_property(S7::class_character, default = character(0)),
     elapsed_time = S7::new_property(S7::class_numeric, default = numeric(0))
   )
@@ -120,17 +123,21 @@ swcontainer <- S7::new_class(
     arguments = null_or_list,
     data = null_or_list,
     rownames = S7::new_property(S7::class_logical, default = logical(0)),
-    metadata = S7::new_property(S7::class_data.frame, default = data.frame()),
+    metadata = S7::new_property(S7::class_data.frame, default = .empty_df),
     targetdata = df_or_list,
     samplename = S7::new_property(S7::class_character, default = character(0)),
-    additional_vars = S7::new_property(S7::class_character,
-                                       default = character(0)),
+    additional_vars = S7::new_property(
+      S7::class_character,
+      default = character(0)
+    ),
     summary_fun = null_or_function,
     eval_fun = null_or_function,
     exported = S7::new_property(S7::class_list, default = list()),
     model_print = S7::new_property(S7::class_character, default = character(0)),
-    arguments_print = S7::new_property(S7::class_character,
-                                       default = character(0))
+    arguments_print = S7::new_property(
+      S7::class_character,
+      default = character(0)
+    )
   )
 )
 
@@ -251,13 +258,11 @@ seqwrap_compose <- function(
   exported = list(),
   update = list()
 ) {
-
   # Check if x is a swcontainer for updating
   if (S7::S7_inherits(x, swcontainer)) {
     # Pass updates as a list for the named parameter
     return(seqwrap_update(container = x, update))
   }
-
 
   # Extract the modelling algorithm for printing
   if (!is.null(modelfun)) {
@@ -308,13 +313,12 @@ seqwrap_compose <- function(
   # Initialize an empty container and add objects if they exist
   container <- swcontainer()
 
-
-
   # Set other properties
   if (!is.null(modelfun)) container@modelfun <- modelfun
   if (!is.null(modelfun)) container@model_print <- deparse(call_str$modelfun)
   if (!is.null(arguments)) container@arguments <- arguments
-  if (!is.null(arguments)) container@arguments_print <- deparse(call_str$arguments)
+  if (!is.null(arguments))
+    container@arguments_print <- deparse(call_str$arguments)
   if (!is.null(data)) container@data <- data
   if (!is.null(rownames)) container@rownames <- rownames
   if (!is.null(metadata)) container@metadata <- metadata
@@ -342,7 +346,6 @@ seqwrap_compose <- function(
     }
   }
 
-
   # Return the populated container
   return(container)
 }
@@ -352,36 +355,33 @@ seqwrap_compose <- function(
 seqwrap_update <- S7::new_generic("seqwrap_update", "container")
 
 # Implement method for swcontainer class
-S7::method(seqwrap_update, swcontainer) <- function(container, update = list()) {
-
+S7::method(seqwrap_update, swcontainer) <- function(
+  container,
+  update = list()
+) {
   if (!S7::S7_inherits(container, swcontainer)) {
     stop("First argument must be a swcontainer object")
   }
-
 
   if (length(update) == 0) {
     return(container) # Nothing to update
   }
 
-
   # Get property names
- name <- names(update)
+  name <- names(update)
 
-
- # Special handling for modelfun to update model_print
-  if ("modelfun" %in% name)  {
-
+  # Special handling for modelfun to update model_print
+  if ("modelfun" %in% name) {
     # The model print information is not updated
     # due to difficulties getting the call from the
     # method. This is a temporary solution.
     update$model_print <- "The model function has been updated"
-
-     }
+  }
 
   # Update the container object
   S7::props(container) <- update
 
- return(container)
+  return(container)
 }
 
 
@@ -397,8 +397,6 @@ seqwrap_check <- function(x, verbose = TRUE) {
   if (!S7::S7_inherits(x, swcontainer)) {
     stop("The container must be a swcontainer object")
   }
-
-
 
   # checks if arguments for the provided fitting function matches arguments
   if (!all(names(x@arguments) %in% names(formals(x@modelfun)))) {
@@ -435,12 +433,11 @@ seqwrap_check <- function(x, verbose = TRUE) {
     )
   }
 
-
   # Count the number of unique targets in the data
   if (x@rownames) {
     n_targets <- length(unique(rownames(x@data)))
   } else {
-    n_targets <- length(unique(x@data[,1]))
+    n_targets <- length(unique(x@data[, 1]))
   }
 
   # If the target unique indicator is not the same as number of rows abort
@@ -479,25 +476,26 @@ seqwrap_check <- function(x, verbose = TRUE) {
     sample_id_print <- paste0(paste(data_sample_id, collapse = ", "), ", ...")
   }
 
-
-  if (!all(meta_data_sample_id %in% data_sample_id) &&
-      all(data_sample_id %in% meta_data_sample_id)) {
+  if (
+    !all(meta_data_sample_id %in% data_sample_id) &&
+      all(data_sample_id %in% meta_data_sample_id)
+  ) {
     cli::cli_abort(
-    "The sample names in the meta data does not match the sample column names
+      "The sample names in the meta data does not match the sample column names
     in the data. Check if the sample names are correctly formatted and that
     `samplename` looks for the correct variable in the meta data."
     )
   }
 
   # If verbose is TRUE, print the diagnostics
-  if(verbose) {
-
+  if (verbose) {
     printfun <- function() {
-
       cli::cli_h1("seqwrap diagnostics")
 
-      cli::cli_inform("The swcontainer object has been checked for
-                      consistency with the following diagnostics:\n")
+      cli::cli_inform(
+        "The swcontainer object has been checked for
+                      consistency with the following diagnostics:\n"
+      )
 
       cli::cli_ul(
         "The number of unique target identifications is {n_targets}."
@@ -515,19 +513,13 @@ seqwrap_check <- function(x, verbose = TRUE) {
       cli::cli_ul(
         "The modelling function to be used is {x@model_print}."
       )
-
-
     }
     printfun()
   }
 
   # If the swcontainer is a fully populated data container return TRUE
   return(TRUE)
-
 }
-
-
-
 
 
 # #' Print method for objects of class swcontainer
@@ -604,7 +596,6 @@ seqwrap <- function(
   cores = 1,
   verbose = TRUE
 ) {
-
   # Elapsed time
   start_time <- proc.time()
 
@@ -626,10 +617,8 @@ seqwrap <- function(
     if (!is.null(exported)) updates$exported <- exported
 
     # Update the container
-    if (length(updates) > 0) container <- seqwrap_compose(container,
-                                                          update = updates)
-
-
+    if (length(updates) > 0)
+      container <- seqwrap_compose(container, update = updates)
   } else if (inherits(y, "DGEList")) {
     # If the input is a DGEList object, compose a new container
     container <- seqwrap_compose(x = y)
@@ -649,8 +638,6 @@ seqwrap <- function(
 
     # Update the container
     container <- seqwrap_compose(container, update = updates)
-
-
   } else if (is.null(y)) {
     # If the input is NULL, compose a new container
     container <- seqwrap_compose(
@@ -668,13 +655,9 @@ seqwrap <- function(
     stop("The input must be a swcontainer object, a DGEList object or NULL")
   }
 
-
   # If eval_fun or summary_fun are NULL, supply generic functions
   if (is.null(container@summary_fun)) container@summary_fun <- generic_summary
   if (is.null(container@eval_fun)) container@eval_fun <- generic_evaluation
-
-
-
 
   # If subset is provided, subset the data
   if (!is.null(subset)) {
@@ -691,8 +674,10 @@ seqwrap <- function(
     }
   }
 
-
-
+  # Validate model_path when save_models is TRUE
+  if (save_models && is.null(model_path)) {
+    stop("'model_path' must be specified when 'save_models' is TRUE")
+  }
 
   # Check the container for consistency
   # seqwrap_check(container, verbose = verbose)
@@ -700,8 +685,6 @@ seqwrap <- function(
   # Get the number of targets and samples
   k <- nrow(container@data)
   n <- nrow(container@metadata)
-
-
 
   # data_helper function. Combine data into a list of data frames
   # containing variables, y in case of user-provided data frame;
@@ -730,10 +713,10 @@ seqwrap <- function(
   # Print pre-fit information
 
   if (verbose) {
-  cli::cli_h1("seqwrap")
-  cli::cli_inform(
-    "Initiating clusters for parallel processing with {num_cores} core{?s}"
-  )
+    cli::cli_h1("seqwrap")
+    cli::cli_inform(
+      "Initiating clusters for parallel processing with {num_cores} core{?s}"
+    )
   }
 
   ## Applying the model function in parallel ##
@@ -751,12 +734,8 @@ seqwrap <- function(
   # Create a cluster using the number of cores specified
   cl <- parallel::makeCluster(num_cores)
 
-  # Load required packages on each worker
-  parallel::clusterEvalQ(cl, {
-    library(broom.mixed)
-    library(DHARMa)
-    library(tibble)
-  })
+  # Load the seqwrap namespace (and its Imports) on each worker
+  parallel::clusterEvalQ(cl, requireNamespace("seqwrap"))
 
   ## Export data to clusters
   parallel::clusterExport(
@@ -781,7 +760,6 @@ seqwrap <- function(
   if (verbose) {
     cli::cli_inform("Merging and modelling data")
   }
-
 
   results <- pbapply::pblapply(
     cl = cl,
@@ -832,35 +810,35 @@ seqwrap <- function(
   elapsed_time <- proc.time() - start_time
   sys_time <- Sys.time()
 
-
-
   ## Evaluate errors for the resulting print function
   if (verbose) {
-   cli::cli_inform({
-     paste0(format(sys_time, "%b %d %Y %X"),
-     ": Completed model fitting and evaluation. Elapsed time was ",
-     round(elapsed_time[[3]] / 60, 2),
-     " minutes")
-     })
+    cli::cli_inform({
+      paste0(
+        format(sys_time, "%b %d %Y %X"),
+        ": Completed model fitting and evaluation. Elapsed time was ",
+        round(elapsed_time[[3]] / 60, 2),
+        " minutes"
+      )
+    })
 
-  if (any(errors_sum[-1] > 0)) {
-    cli::cli_alert_info("Some targets had associated errors or warnings")
+    if (any(errors_sum[-1] > 0)) {
+      cli::cli_alert_info("Some targets had associated errors or warnings")
 
-    cli::cli_inform(c(
-      "*" = "Modeling algorithm (errors): n = {errors_sum[2]}
+      cli::cli_inform(c(
+        "*" = "Modeling algorithm (errors): n = {errors_sum[2]}
       ({round(100 * (errors_sum[2]/k))}%)",
-      "*" = "Modeling algorithm (warnings): n = {errors_sum[3]}
+        "*" = "Modeling algorithm (warnings): n = {errors_sum[3]}
       ({round(100 * (errors_sum[3]/k))}%)",
-      "*" = "Summary function (errors): n = {errors_sum[4]}
+        "*" = "Summary function (errors): n = {errors_sum[4]}
       ({round(100 * (errors_sum[4]/k))}%)",
-      "*" = "Summary function (warnings): n = {errors_sum[5]}
+        "*" = "Summary function (warnings): n = {errors_sum[5]}
       ({round(100 * (errors_sum[5]/k))}%)",
-      "*" = "Evaluation function (errors): n = {errors_sum[6]}
+        "*" = "Evaluation function (errors): n = {errors_sum[6]}
       ({round(100 * (errors_sum[6]/k))}%)",
-      "*" = "Evaluation function (warnings): n = {errors_sum[7]}
+        "*" = "Evaluation function (warnings): n = {errors_sum[7]}
       ({round(100 * (errors_sum[7]/k))}%)"
-    ))
-  }
+      ))
+    }
   }
 
   ## Combine the results into a seqwrapResults
@@ -880,7 +858,6 @@ seqwrap <- function(
 }
 
 
-
 #' Summarise seqwrapResults objects
 #'
 #' @param x A seqwrapResults object
@@ -897,20 +874,20 @@ seqwrap <- function(
 #'
 #'
 #' @export
-seqwrap_summarise <- function(x,
-                              summaries = TRUE,
-                              evaluations = TRUE,
-                              errors = TRUE,
-                              verbose = TRUE) {
-
+seqwrap_summarise <- function(
+  x,
+  summaries = TRUE,
+  evaluations = TRUE,
+  errors = TRUE,
+  verbose = TRUE
+) {
   # Check if the input is a seqwrapResults object
   if (!S7::S7_inherits(x, seqwrapResults)) {
     stop("The input must be a seqwrapResults object")
   }
 
-
   ## Print information from the seqwrapResults object
-  print_info <-function() {
+  print_info <- function() {
     cli::cli_h1("seqwrap summarise")
 
     cli::cli_li(
@@ -919,25 +896,28 @@ seqwrap_summarise <- function(x,
                   {.code {x@call_arguments}}"
     )
     if (summaries) {
-      cli::cli_li("Attempting to combine results from
-                  the provided summary function.")
+      cli::cli_li(
+        "Attempting to combine results from
+                  the provided summary function."
+      )
     }
 
     if (evaluations) {
-      cli::cli_li("Attempting to combine results from
-                  the provided evaluations function.")
+      cli::cli_li(
+        "Attempting to combine results from
+                  the provided evaluations function."
+      )
     }
 
     if (errors) {
-      cli::cli_li("Attempting to summarise errors and
-                  warnings from the fitting process.")
+      cli::cli_li(
+        "Attempting to summarise errors and
+                  warnings from the fitting process."
+      )
     }
-
   }
 
   if (verbose) print_info()
-
-
 
   ## Initialize results variables ##
   summarised_results_final <- NULL
@@ -947,28 +927,20 @@ seqwrap_summarise <- function(x,
 
   ## Extract summarises
   if (summaries) {
-
-
     # Check for NULL or empty list
-    if (is.null(x@summaries) || all(sapply(x@summaries, is.null)))  {
-
+    if (is.null(x@summaries) || all(sapply(x@summaries, is.null))) {
       print_summary <- function() {
-      cli::cli_h1("Model summaries")
-      cli::cli_alert_info("No summaries available")
+        cli::cli_h1("Model summaries")
+        cli::cli_alert_info("No summaries available")
       }
       if (verbose) print_summary()
-
-      } else {
-
+    } else {
       # Count the number of non-null elements in the list of summaries
       n_summaries <- sum(!sapply(x@summaries, is.null))
-
-
 
       print_summary <- function() {
         cli::cli_h1("Model summaries")
         cli::cli_li("{n_summaries} targets have associated summaries")
-
       }
 
       if (verbose) print_summary()
@@ -977,29 +949,29 @@ seqwrap_summarise <- function(x,
       x@summaries <- x@summaries[!sapply(x@summaries, is.null)]
 
       # Use Map to put names in the target column
-      temp_list_summaries <- Map(function(df, df_name) {
-        df[["target"]] <- df_name
-        # Move the target column to the first column
-        df <- df[, c("target", setdiff(colnames(df), "target")),
-                 drop = FALSE]
-        # Return data frames
-        df
-      }, x@summaries, names(x@summaries))
+      temp_list_summaries <- Map(
+        function(df, df_name) {
+          df[["target"]] <- df_name
+          # Move the target column to the first column
+          df <- df[, c("target", setdiff(colnames(df), "target")), drop = FALSE]
+          # Return data frames
+          df
+        },
+        x@summaries,
+        names(x@summaries)
+      )
 
       # Bind the list of data frames
       summarised_results_final <- do.call(rbind, temp_list_summaries)
       # NOW set rownames to NULL on the combined data frame
       rownames(summarised_results_final) <- NULL
-
     }
   } # End if (summaries)
 
   ## Extract evaluations
   if (evaluations) {
-
     # Check for NULL or empty list
     if (is.null(x@evaluations) || all(sapply(x@evaluations, is.null))) {
-
       print_evaluation <- function() {
         cli::cli_h1("Model evaluations")
         cli::cli_alert_info("No evaluations available")
@@ -1007,16 +979,12 @@ seqwrap_summarise <- function(x,
       if (verbose) print_evaluation()
       # evaluated_results_final remains NULL
     } else {
-
       # Count the number of non-null elements in the list of evaluations
       n_evals <- sum(!sapply(x@evaluations, is.null))
-
-
 
       print_evaluation <- function() {
         cli::cli_h1("Model evaluations")
         cli::cli_li("{n_evals} targets have associated evaluation results")
-
       }
 
       if (verbose) print_evaluation()
@@ -1025,19 +993,21 @@ seqwrap_summarise <- function(x,
       x@evaluations <- x@evaluations[!sapply(x@evaluations, is.null)]
 
       # Use Map to process each data frame in the list
-      temp_list_evaluations <- Map(function(df, df_name) {
-        df[["target"]] <- df_name
-        # Move the target column to the first column
-        df <- df[, c("target", setdiff(colnames(df), "target")),
-                 drop = FALSE]
+      temp_list_evaluations <- Map(
+        function(df, df_name) {
+          df[["target"]] <- df_name
+          # Move the target column to the first column
+          df <- df[, c("target", setdiff(colnames(df), "target")), drop = FALSE]
 
-        df
-      }, x@evaluations, names(x@evaluations))
+          df
+        },
+        x@evaluations,
+        names(x@evaluations)
+      )
 
       # Bind the list of data frames
       evaluated_results_final <- do.call(rbind, temp_list_evaluations)
       rownames(evaluated_results_final) <- NULL
-
     }
   } # End if (evaluations)
 
@@ -1062,30 +1032,15 @@ seqwrap_summarise <- function(x,
 
   # Check if the final list is empty
   if (length(results) != 0) {
-  if (verbose) {
-    cli::cli_h1("Combined results")
-    cli::cli_alert_info("Combined results have been generated and were
-                        silently returned.")
-  }
-
+    if (verbose) {
+      cli::cli_h1("Combined results")
+      cli::cli_alert_info(
+        "Combined results have been generated and were
+                        silently returned."
+      )
+    }
   }
 
   # Return the final list object
   return(invisible(results))
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

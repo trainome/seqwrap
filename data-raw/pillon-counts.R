@@ -25,6 +25,9 @@ countdata <- counts_mat |>
   dplyr::inner_join(annotation) |>
   dplyr::select(geneid = Symbol, tidyselect::starts_with("GSM"))
 
+# Remove all zero row counts
+countdata <- countdata[rowSums(countdata[, -1]) != 0, ]
+
 
 # Sort meta data
 metadata <- counts@colData |>

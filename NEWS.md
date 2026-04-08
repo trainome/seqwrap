@@ -1,3 +1,19 @@
+
+# seqwrap 0.6.0
+
+- Bugs
+  * Internal fix, passing "library(broom.mixed)" to clusterEvalQ is not recommended. Changed to requireNamespace("seqwrap").
+  * Internal fix, removed triple colon on exported functions in vignette. 
+  * Removed getwd() in saving model output on disk (seqwrap_mtf.R).
+  * Updated @importFrom stats in simcounts2.R
+
+
+# seqwrap 0.5.0
+
+## News
+
+- Bugfixes
+
 # seqwrap 0.4.0
 
 ## News

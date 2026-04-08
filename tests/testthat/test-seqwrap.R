@@ -27,7 +27,7 @@ test_that("seqwrap returns a list of models in the model
     additional_vars = NULL
   )
 
-  test_glmmtmb <- seqwrap::seqwrap(swobject, return_models = TRUE, cores = 10)
+  test_glmmtmb <- seqwrap::seqwrap(swobject, return_models = TRUE, cores = 2)
 
   expect_s3_class(test_glmmtmb@models[[1]], "glmmTMB")
 

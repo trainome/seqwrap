@@ -1,28 +1,22 @@
 ---
-title: "Flexible iterative fitting over omics-type data using the modeling algorithm of your choice"
-author: "Daniel Hammarström"
-date: "2025-06-25"
+title: "Working with lme4 and nlme in seqwrap"
+author:
+  - name: Chidimma Echebiri
+    affiliation:
+      - name: University of Inland Norway
+        department: Department of Biotechnology, PhD programme in applied ecology and biotechnology
+  - name: Daniel Hammarström
+    email: daniel.hammarstrom@inn.no
+    affiliation: 
+      - name: University of Inland Norway
+        department: Department of Public Health and Sport Sciences 
 vignette: >
-  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteIndexEntry{Working with lme4 and nlme in seqwrap}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup}
-library(seqwrap)
-```
-
-
-
-## Background
-
-Differential expression is determined in RNA-sequencing experiments using specific software packages such as edgeR REF:McCarthy2012 or DEseq2 REF:Love2014. These packages provides efficient algorithms for fitting gene-expression data to count-based models by sharing information across genes in relatively simple designs. More elaborate experimental designs may require the addition of random effects to such models when observations are not independent. To accommodate random effects Vestal et al. REF:vestal2022 developed [lmerSeq](https://github.com/stop-pre16/lmerSeq) which allowed iterative fitting of mixed linear models to transformed count data. Similarly, Lewis et al. [@Lewis] developed [glmmSeq](https://cran.r-project.org/web/packages/glmmSeq/vignettes/glmmSeq.html#glmmSeq) to fit negative binomial mixed effects models. We have previously used negative binomial mixed models to fit data from repeated measures designs [@Khan2020; @Mlmen2021], however the software implementation was not formalized to user-friendly functions.
-
-The aim of the `seqwrap` package is to provide even more flexibility to model fitting of omics-type data. Although [lmerSeq](https://github.com/stop-pre16/lmerSeq) and [glmmSeq](https://cran.r-project.org/web/packages/glmmSeq/vignettes/glmmSeq.html#glmmSeq) both provides powerful implementations of fitting algorithms to iterative fitting they are limited as the user cannot select which fitting algorithm to use. `seqwrap` can use a wide selection of fitting functions from established R packages (see examples below) which makes the model fitting process more flexible. In addition, the user can provide user-created summary- and model evaluation-functions to tailor output for specific purposes.
-
-## Iterative fitting of high dimensional data
-
-The `seqwrap` function lets the user specify which modelling algorithm to be used when modelling data provided as a data frame and metadata describing each sample. Target-specific models are passed to the results together with optional user-specified summary and model-evaluation functions. The function aims to not limit the user in preferences of specific models. This allows for comparisons between modelling frameworks and flexibility for many types of high-dimensional data. A basic workflow for working with `seqwrap` is described below.
+The `seqwrap` function lets the user specify which modeling algorithm to use when modeling data provided as a data frame and metadata describing each sample. Target-specific models are passed to the results together with optional user-specified summary and model-evaluation functions. The function aims not to limit the user to the preferences of specific models. This allows for comparisons between modeling frameworks and flexibility for many types of high-dimensional data. In this vignette, three popular packages are applied to the same underlying data with varying model definitions. 
 
 
 ### Fitting count data to a negative binomial model using `glmmTBM`
@@ -30,14 +24,14 @@ The `seqwrap` function lets the user specify which modelling algorithm to be use
 We will start by simulating data from a simple experiment where count data has been gathered from 25 clusters in two conditions (e.g. treatment and control). 
 
 ```{r}
-#| label: fig-simulated-data
+#| label: simulated-data
 
 library(seqwrap)
 library(glmmTMB)
 
 
 # Simulate data
-dat <- seqwrap:::simcounts(n_genes = 1000, 
+dat <- seqwrap::simcounts(n_genes = 1000, 
                     n_samples = 50, 
                     beta_0 = 2, 
                     sigma_0 = 0.5, 
@@ -108,11 +102,11 @@ seqwrap::generic_summary
 seqwrap::generic_evaluation
 ```
 
-We encurage users to define their own custom functions. 
+We encourage users to define their own custom functions. 
 
 ### Fitting transformed count data to a Gaussian model using `lme4`
 
-INstead of counts, let's say we are interested in analyzing counts per million, expressed as $\text{CPM} = \frac{\text{Count}}{\text{Library size}} \times 10^6$. We will convert our simulated count data to CPM.
+Instead of counts, let's say we are interested in analyzing counts per million, expressed as $\text{CPM} = \frac{\text{Count}}{\text{Library size}} \times 10^6$. We will convert our simulated count data to CPM.
 
 
 ```{r}
@@ -169,7 +163,7 @@ modelsum$summaries
 
 ### Using `nlme::lme` and `nlme::gls`, need for `additional_vars`
 
-We will now try to fit the same model as previously fitted in `lme4::lmer` in `nlme::lme`. We can use the same `swcontainer` object and update the relevant lines. Notice that `nlme::lme` requires a different syntax for defining the model. Unsuprisingly, the results are the same @fig-complme. 
+We will now try to fit the same model as previously fitted in `lme4::lmer` using `nlme::lme`. We can use the same `swcontainer` object and update the relevant lines. Notice that `nlme::lme` requires a different syntax for defining the model. Unsurprisingly, the results are the same @fig-complme. 
 
 ```{r}
 
@@ -205,9 +199,9 @@ abline(a = 0, b = 1)
 
 ```
 
-`seqwrap` will attempt to collect relevant data from the meta data for use in modelling. This is done by extracting variable names from model formulations. In some cases this turns out to be difficult as we use additional functionality in some packages. Models constructed in `nlme::gls` is an example. 
+`seqwrap` will attempt to extract relevant metadata for use in modeling. This is done by extracting variable names from model formulations. In some cases, this can be difficult because we use additional functionality in some packages. Models constructed in `nlme::gls` are an example. 
 
-We can construct a similar model as in `nlme::lme` using `nlme::CorCompSymm` resulting in a model where the correlations between observations within clusters are uniform (see `?nlme::CorCompSymm`). To help `seqwrap` understand that we want to include `cluster`from the meta data in all fitting objects we need to include it in `additional_vars`.
+We can construct a similar model to `nlme::lme` using `nlme::CorCompSymm`, resulting in a model where the correlations between observations within clusters are uniform (see `?nlme::CorCompSymm`). To help `seqwrap` understand that we want to include `cluster` from the metadata in all fitting objects, we need to include it in `additional_vars`.
 
 ```{r}
 
@@ -230,6 +224,8 @@ As evident from @fig-compgls we can see that the two models will produce slightl
 
 
 gls_est <- data.frame(modelsum_gls$summaries[, c(1,2,3,4,6)])
+
+
 ```
 
 ```{r}
@@ -244,13 +240,4 @@ abline(a = 0, b = 1)
 
 ```
 
-## Defining custom summary and evaluation functions.
 
-When defining custom summary and evaluation function the user need to specify them as R functions with a single model object as input. The user should aim to create functions that returns data frames as `seqwrap` will try to combine summaries and evaluations to data frame over all targets.
-
-
-
-
-
-
-## References

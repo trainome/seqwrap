@@ -10,8 +10,7 @@ swcontainer(
   arguments = NULL,
   data = NULL,
   rownames = logical(0),
-  metadata = structure(list(), names = character(0), row.names = integer(0), class =
-    "data.frame"),
+  metadata = structure(list(), names = character(0), row.names = integer(0), class = "data.frame"),
   targetdata = NULL,
   samplename = character(0),
   additional_vars = character(0),

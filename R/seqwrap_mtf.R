@@ -385,12 +385,6 @@ seqwrap_mtf <- function(
   }
 
   # Save the model if requested
-  mod_path <- if (!is.null(mod_path)) {
-    mod_path
-  } else {
-    paste0(getwd(), "/seqwrap-output")
-  }
-
   if (save_mods) saveRDS(mod, file = paste0(mod_path, "/", names(x), ".rds"))
 
   # Return the model if requested

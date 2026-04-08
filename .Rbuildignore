@@ -10,3 +10,6 @@
 ^\.DS_Store$
 ^\.gitignore$
 ^\.git$
+^\.claude$
+^doc$
+^Meta$

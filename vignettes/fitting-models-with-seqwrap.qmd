@@ -1,0 +1,501 @@
+---
+title: "Fitting models with seqwrap"
+author:
+  - name: Chidimma Echebiri
+    affiliation:
+      - name: University of Inland Norway
+        department: Department of Biotechnology, PhD programme in applied ecology and biotechnology
+  - name: Daniel Hammarström
+    email: daniel.hammarstrom@inn.no
+    affiliation: 
+      - name: University of Inland Norway
+        department: Department of Public Health and Sport Sciences 
+csl: resources/bmc-bioinformatics.csl
+bibliography: resources/bibliography.bib
+vignette: >
+  %\VignetteIndexEntry{Fitting models with seqwrap}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+The `seqwrap` package is designed to iterate over multiple targets in a high-dimensional data set to fit a user-defined regression model using a user-selected model fitting function. Each target may represent, e.g., a gene, an exon, a protein, a methylation site, or any other outcome from a high-throughput omics platform. Each target is measured across a set of samples, with a metadata set used to describe study covariates. In the basic case, data and metadata are combined in each iteration to fit the selected model. 
+
+Dungan et al. [@dungan2022] evaluated a senolytic treatment (dasatinib and quercetin) in mouse skeletal muscle subjected to mechanical overload through synergist ablation. The study included sham surgery and a vehicle control, allowing analysis of the effect of senolytic treatment and the interaction between mechanical overloading and senolytic treatment. RNA-seq was performed on 20 animals (5 per group). The data are available in the `seqwrap` package under `dungan_counts`. We will load the data and filter low-expression genes.
+
+
+```{r}
+#| labels: packages-and-data 
+#| message: false
+#| warning: false
+
+# Load packages
+library(dplyr)
+library(ggplot2)
+library(seqwrap)
+library(edgeR)
+library(gt)
+
+# Load data 
+d <- dungan_counts
+
+metadata <- dungan_counts$metadata
+counts <- dungan_counts$countdata
+
+```
+
+The metadata contains the sample ID corresponding to columns in the counts data set. We are using `seq_sample_id` as the column name here. The first rows of the prepared metadata are displayed in @tbl-meta-dungan.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-meta-dungan
+#| tbl-cap: "Selected rows from the Dungan et al. metadata data frame."
+
+
+metadata |> 
+  slice_head(n = 2, by = c(treatment, surgery)) |> 
+  gt() |> 
+  opt_table_font(size = 12)
+
+# Save seq_sample_id for display
+samples <- metadata |> 
+  slice_head(n = 2, by = c(treatment, surgery)) |> 
+  pull(seq_sample_id)
+
+```
+
+The count data matrix can be manipulated as a data frame, with the first column indicating the targets (in this case, gene symbols). Importantly, additional column names have names corresponding to the `seq_sample_id` variable in the metadata. As an example, the first rows of the count data frame are shown for the same samples as in the metadata data frame (see @tbl-dungan-counts). `seqwrap` expects that targets are unique so before going further we should validate this in the data. When doing so we find that five targets have duplicate rows in the data set, for simplicity, we will remove them.   
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-dungan-counts
+#| tbl-cap: "Selected rows from the Dungan et al. counts data frame."
+
+counts |> 
+  slice_head(n = 10) |> 
+  dplyr::select(gene_name, all_of(samples)) |> 
+  gt() |> 
+  opt_table_font(size = 12)
+
+```
+
+
+
+```{r}
+
+# Find targets with more than a unique row in the data
+rm_targets <- counts |> 
+  summarise(.by = gene_name, 
+            n = n()) |> 
+  filter(n > 1) |> 
+  pull(gene_name)
+
+# Filter out non-uniqe rows
+counts <- counts |> 
+  filter(!(gene_name %in% rm_targets))
+
+```
+
+
+```{r}
+#| echo: false
+
+# Count the number of targets
+n_genes <- nrow(counts)
+
+```
+
+The data suggests a negative binomial model where the linear predictor can be used to assess the difference between senolytic treatment and control (treat; $\beta_1g$), mechanical overloading compared to sham surgery (mov; $\beta_2g$), and their interaction ($\beta_3g$) for gene *g* in 1 to `r n_genes` and row *i* in 1 to 20 of the meta data (@eq-m1). We want to control for differences in sequencing depth by including an offset (*s*~i~). We will use the TMM method [@robinson2010] to calculate the effective library size.
+
+
+$$
+\begin{align}
+y_{g[i]} &\sim \operatorname{NB2}(\mu_{g[i]}, \theta_g) \\
+\operatorname{log}(\mu_{g[i]}) &= \beta_0 + \beta_{1g}\text{treat}_i + \beta_{2g}\text{mov}_i + \beta_{3g}(\text{treat}_i \times  \text{mov}_i) + \operatorname{log}(s_i)
+\end{align}
+$$ {#eq-m1}
+
+Below, we are using the `edgeR` package to calculate the library size normalization factor. Effective library sizes are then expressed as relative to the median effective library and log transformed.
+
+```{r}
+
+# Use EdgeR to calculate the TMM
+y <- edgeR::DGEList(counts[,-1])
+y <- edgeR::calcNormFactors(y)
+
+# Combine the data into metadata
+metadata <- metadata |> 
+  inner_join(
+    y$samples |> 
+  tibble::rownames_to_column("seq_sample_id")
+  ) |> 
+   mutate(
+     efflibsize = (lib.size * norm.factors) / median(lib.size * norm.factors),
+     efflibsize = log(efflibsize)
+   ) 
+
+
+```
+
+
+`seqwrap_compose` is used to combine the data, metadata and the selected modelling function with its arguments into a `swobject`. A negative binomial model can be fitted using e.g., `glmmTMB` from the `glmmTMB package (glmmTMB::glmmTMB`) or `MASS::glm.nb`, here we will use `glmmTMB` as it can be extended in subsequent modelling steps. 
+
+The specified `glmmTMB` function (`modelfun` slot) needs a formula and a family function, these are supplied in the arguments slot. The count data are supplied in the `data` slot and the metadata in the `metadata` slot.  Notice that we use the namespace operator (`::`) to specify selected functions to avoid difficulties in parallel processing. The `samplename` indicates the column name in the metadata that gives sample names.   
+
+
+```{r}
+
+m1.1 <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  data = counts, 
+  metadata = metadata, 
+  arguments = list(formula = y ~ treatment * surgery + offset(efflibsize), 
+                family = glmmTMB::nbinom2),
+  samplename = "seq_sample_id"
+  )
+
+```
+
+Next, we will run the model using `seqwrap`. We recommend using `subset` to specify a smaller number of targets when prototyping the model. Here, we will assess whether the model output matches expectations. By specifying `return_models = TRUE`, all model objects will be returned in the results object, which can be inspected if needed. Here we are using a single core for fitting the models, specified in the `cores` argument.
+
+```{r}
+
+m1.1_temp <- seqwrap(
+  m1.1, 
+  cores = 1, 
+  subset = 1:24, 
+  return_models = TRUE, 
+  verbose = FALSE
+)
+
+```
+
+Following iterative fitting using `seqwrap`, we can summarize the models using `seqwrap_summarise`, which produces a list of two summaries. Below, we are saving the summaries in an object for later access. Running the `seqwrap_summarise` function also gives us an overview of the model and successfully summarized targets.
+
+In the `summaries` slot, model parameter values are returned (see @tbl-dungan-sum-temp). These are produced using `broom.mixed::tidy` which is a general function to retrieve model parameters from many regression model packages in R. 
+
+In the `evaluations` slot, each model is evaluated using tests from the [DHARMa package](https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html) (see @tbl-dungan-eval-temp). 
+
+```{r}
+
+m1.1_temp_sum <- seqwrap_summarise(m1.1_temp, verbose = FALSE)
+
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-dungan-sum-temp
+#| tbl-cap: "The first ten rows from summarised preliminary models (model summaries)."
+
+
+m1.1_temp_sum$summaries |> 
+  slice_head(n = 10) |> 
+  gt() |> 
+  fmt_auto() |> 
+  opt_table_font(size = 10)
+
+```
+
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: tbl-dungan-eval-temp
+#| tbl-cap: "The first ten rows from summarised preliminary models (model evaluations). Values are p-values from the DHARMa package (see [here for details](https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html))."
+
+
+m1.1_temp_sum$evaluations |> 
+  slice_head(n = 10) |> 
+  gt() |> 
+  opt_table_font(size = 12)
+
+```
+
+
+### Specifying summary and evaluation function
+
+We can specify custom functions for evaluating the model object. `seqwrap` allows for two slots (summaries and evaluations). Each function should take the model object as an argument, and for compatibility with `seqwrap_summarise`, return a data frame. For our next step, we would like to retrieve the dispersion parameter from each model. We will place this parameter in the evaluation function. We can extract the dispersion parameter on the log scale from the `glmmTMB` model object. We will construct a function around the extraction and include the observed counts from the data:
+
+
+```{r}
+
+dispersion_fun <- function(x) {
+  
+    out <- data.frame(
+      dispersion =  data.frame(summary(x$sdr))["betadisp",1],
+      dispersion.se = data.frame(summary(x$sdr))["betadisp",2],
+      log_mu = log(mean(x$frame$y))
+      )
+  
+    return(out)
+  
+}
+```
+
+Using our preliminary models, we can validate the function for one model.
+
+```{r}
+dispersion_fun(m1.1_temp@models[[1]])
+```
+
+The output is, as expected, a data frame with three columns. The dispersion parameter is expected to be on the log scale. To validate this we can directly access the estimated dispersion parameter from the model object using `sigma()`, which return the dispersion parameter on the natural scale. 
+
+```{r}
+log(sigma(m1.1_temp@models[[1]]))
+```
+
+
+### Running the full model
+
+When we are happy with preliminary performance on a subset of targets, we can initialize `seqwrap` to iterate over all targets. We are updating the previous model with the new evaluation function directly in `seqwrap`. Notice that we also remove the `subset` and set `return_models` to `FALSE`. Saving all model objects will be too memory-consuming.
+
+We should expect some errors from modelling many thousands of targets. As seen in the note from `seqwrap`, some models are associated with warnings from the modelling algorithm and/or errors from the evaluation function.
+
+
+```{r}
+
+
+m1.2_results <- seqwrap(
+  m1.1,
+  eval_fun = dispersion_fun,
+  cores = 12, 
+  return_models = FALSE,
+  verbose = FALSE
+)
+
+
+```
+
+
+Errors can be inspected by accessing the errors slot. From the inspection below, warnings are at least to some extent related to model convergence.
+
+```{r}
+
+warnings <- m1.2_results@errors|> 
+  # filter the non-null elements
+  filter(purrr::map_lgl(warnings_fit, ~ !is.null(.x[[1]]))) |> 
+  # save in object
+  pull(warnings_fit)
+
+warnings[1]
+
+```
+
+
+### Using target data for prior information in `glmmTMB` 
+
+A major benefit of canonical R packages for RNA-seq data modelling is the sharing of information between targets through shrinkage and empirical Bayes strategies. We suggest using priors in `glmmTMB` as convenient way of flexibly regularize models using an empirical Bayes strategy. In `glmmTMB`, the `priors` argument can be used to set priors on parameters. We will use the estimated parameters from the first model to set up the priors.
+
+First, we need to extract the parameters. From the evaluation function we get the average log count and the dispersion parameter estimate. From the summaries, we will get the other parameters (summarized in @fig-dungan-estimates).
+
+
+```{r}
+
+m1.2_sum <- seqwrap_summarise(m1.2_results, verbose = FALSE)
+
+```
+
+
+
+```{r}
+#| fig-cap: "Estimates from modelling the Dungan data. The dispersion trend is visualized using the default `ggplot`2::geom_smooth`."
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-dungan-estimates
+
+library(cowplot)
+library(ggtext)
+
+
+p1 <- m1.2_sum$evaluations |> 
+  ggplot(aes(log_mu, dispersion)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(se = FALSE, color = "orange") + 
+  theme_classic() +
+  labs(x = "Average raw counts log(&mu;) ", 
+       y = "Dispersion log(&theta;)") + 
+  theme(axis.title.x = element_markdown(), 
+        axis.title.y = element_markdown())
+  
+
+p2 <- m1.2_sum$summaries |> 
+  
+  ggplot(aes(estimate)) + 
+  geom_density() + 
+  facet_wrap(~ term, scales = "free") +
+  theme_classic() + 
+  labs(x = "Estimate", y = "")
+
+
+plot_grid(
+  plot_grid(NULL, p1, NULL, rel_heights = c(0.2, 1, 0.2), ncol = 1),
+            p2, 
+          ncol = 2, 
+          rel_widths = c(1, 1.5))
+
+```
+
+
+Except for the dispersion values, we can easily summarize parameter values by their mean and standard deviation. A more elaborate summary of the dispersion values could include an estimate of the mean (log) dispersion, conditional on the average log counts. As the dispersion prior will be slightly different for each target (based on the observed counts), we will combine priors into target-specific data frames and store them as a list. `seqwrap` will make target-specific list elements available in each iteration, making it possible to build the prior data frame for `glmmTMB`.
+
+```{r}
+
+# Summarise parameters from the main output
+param_sum <- m1.2_sum$summaries |> 
+  summarise(.by = term, 
+            m = mean(estimate), 
+            s = sd(estimate)) 
+
+# Fit a model to the log dispersion values
+trend_model <- loess(dispersion ~ log_mu,
+                         data = m1.2_sum$evaluations,
+                         span = 0.7)
+
+
+# Predict dispersion for each gene based on log raw counts
+# and combine into a prior.
+dispersion_prior <- data.frame(gene =  counts[,1],
+                               pred = round(
+                                 predict(trend_model,
+                                         newdata = data.frame(
+                                           log_mu =  log(rowMeans(counts[,-1]))
+                                           )
+                                   ), 3),
+                                 s = round(
+                                   trend_model$s, 3)
+  ) |>
+    mutate(prior = paste0("normal(", pred, ",", s, ")"))
+
+# Combine parameters in a data frame...
+Priors_df <- data.frame(prior = paste0("normal(",
+                                       round(param_sum$m, 2),
+                                       ",",
+                                       round(param_sum$s,2 ), 
+                                       ")"),
+                        class = rep("fixef", 4),
+                        coef = param_sum$term)
+
+
+# ... extract a prediction for the mean dispersion parameter per target
+# and combine with other parameters  
+Priors_list <- list()
+for( j in 1:nrow( counts )) {
+
+
+    df <- bind_rows(Priors_df,
+                    data.frame(
+                      prior =
+                        dispersion_prior[dispersion_prior$gene ==
+                                           counts[j,1],4],
+                      class = "fixef_disp",
+                      coef = "1"
+                    )
+    )
+
+    Priors_list[[j]] <- df
+
+}
+
+```
+
+
+Again, we will combine data, metadata, and arguments using `seqwrap_compose`. We are now also adding the priors to the arguments. The variables used in the priors data frame are made available from the target-specific list referenced in `targetdata = Prior_list`. Using `arguments = alist(... ` avoids evaluation of the list so that the data frame is not evaluated before being used in each iteration. Priors have been built corresponding what is expected by `glmmTMB` (see [Priors in glmmTMB](https://glmmtmb.github.io/glmmTMB/articles/priors.html)).
+
+```{r}
+
+
+m1.3 <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  data = counts, 
+  metadata = metadata, 
+  eval_fun = dispersion_fun, 
+  arguments =  alist(
+    formula = y ~ treatment * surgery + offset(efflibsize), 
+    family = glmmTMB::nbinom2,
+      priors = data.frame(
+        prior = prior,
+        class = class,
+        coef = coef)), 
+  targetdata = Priors_list
+)
+
+
+m1.3_temp <- seqwrap(
+  m1.3, 
+  subset = 1:24, 
+  return_models = TRUE, 
+  verbose = FALSE
+)
+
+
+summary(m1.3_temp@models[[1]])
+
+```
+
+Running the prototyping seems to work, we will proceed with the full data set.
+
+```{r}
+
+m1.3_results <- seqwrap(
+  m1.3, 
+  cores = 12,
+  return_models = FALSE, 
+  verbose = FALSE
+)
+
+m1.3_sum <- seqwrap_summarise(m1.3_results, verbose = FALSE)
+
+```
+
+Regularization increases the number models without convergence issues, in fact all `r n_genes` targets have evaluations and summaries.
+
+The summaries data frame is easily manipulated in subsequent analysis steps to, e.g., adjust p-values and create basic visualizations of the results (@fig-dungan-final-estimates).
+
+```{r}
+#| fig-cap: "A visualization of results from the regularized model of the Dungan et al. data."
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-dungan-final-estimates
+
+
+
+m1.3_sum$summaries |> 
+
+  filter(term == "treatmentSenolytic:surgeryOverload") |> 
+  mutate(fdr = p.adjust(p.value, method = "fdr"), 
+         sig = if_else(fdr < 0.05, "significant", "non-significant"), 
+         SYMBOL = if_else(sig == "significant", target, "")) |> 
+  
+  ggplot(aes(estimate, -log2(p.value), 
+             color = sig)) + 
+  geom_point(alpha = 0.4) + 
+  
+  geom_text(aes(label = SYMBOL), 
+      show.legend = FALSE,
+            position = position_nudge(y = 1)) +
+  
+  theme_classic() + 
+  labs(x = "Estimate (log-scaled)", 
+       y = "-log<sub>2</sub>(p-value)", 
+       color = "FDR < 0.05", 
+       subtitle = "Overload:Senolytic treatment") + 
+  theme(axis.title.y = element_markdown()) 
+
+  
+  
+
+
+```
+
+
+The above example shows how to build models with `seqwrap`. Importantly, we make no claims about the validity of the final model but urge the user to assess assumptions in their data and models as part of a principled workflow.

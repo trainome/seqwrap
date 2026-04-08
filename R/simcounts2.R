@@ -58,32 +58,30 @@
 #' sizes.
 #' @param max_prop The maximum count for a single observation as a proportion
 #' of the library size.
-#' @importFrom stats rnorm runif rnbinom
+#' @importFrom stats rnorm runif rnbinom median model.matrix predict sigma
 #' @return A list of (1) simulated counts, (2) the eta, and (3) phi values used
 #' for simulating data, and (4) the meta data data frame.
 #'
 #'
 #' @export
-simcounts2 <- function(n1 = 5,
-                       n2 = 5,
-                       beta0 = c(2.3, 3),
-                       conditionB = c(0.2, 0.1),
-                       timet2 = c(0, 0),
-                       timet3 = c(0.5, 0.25),
-                       conditionB_timet2 = c(0.1, 0.2) ,
-                       conditionB_timet3 = c(0.5, 0.6),
-                       b0 = c(1, 1),
-                       b1 = c(0, 0),
-                       b2 = c(0, 0),
-                       phi_model = NULL,
-                       library_size = NULL,
-                       lib_size_mean = 1e6,
-                       lib_size_cv = 0.3,
-                       max_prop = 0.02
+simcounts2 <- function(
+  n1 = 5,
+  n2 = 5,
+  beta0 = c(2.3, 3),
+  conditionB = c(0.2, 0.1),
+  timet2 = c(0, 0),
+  timet3 = c(0.5, 0.25),
+  conditionB_timet2 = c(0.1, 0.2),
+  conditionB_timet3 = c(0.5, 0.6),
+  b0 = c(1, 1),
+  b1 = c(0, 0),
+  b2 = c(0, 0),
+  phi_model = NULL,
+  library_size = NULL,
+  lib_size_mean = 1e6,
+  lib_size_cv = 0.3,
+  max_prop = 0.02
 ) {
-
-
-
   # Generate design data
   len_beta0 <- length(beta0)
   len_b1 <- length(conditionB)
@@ -93,24 +91,31 @@ simcounts2 <- function(n1 = 5,
   len_b5 <- length(conditionB_timet3)
 
   # Check that all are similar length
-  if(!all(sapply(list(len_b1, len_b2, len_b3, len_b4, len_b5),
-                 FUN = identical, len_beta0))) {
-    stop("All parameter values (conditionB, timet2, ...)
-        must be of the same length.")
+  if (
+    !all(sapply(
+      list(len_b1, len_b2, len_b3, len_b4, len_b5),
+      FUN = identical,
+      len_beta0
+    ))
+  ) {
+    stop(
+      "All parameter values (conditionB, timet2, ...)
+        must be of the same length."
+    )
   }
 
   # Generate library sizes
-  if(is.null(library_size)) {
-    n_samples <- (n1 + n2) * 3  # total samples
+  if (is.null(library_size)) {
+    n_samples <- (n1 + n2) * 3 # total samples
 
     # Simulate realistic library sizes (log-normal distribution)
     sigma_log <- sqrt(log(1 + lib_size_cv^2))
-    mu_log <- log(lib_size_mean) - sigma_log^2/2
+    mu_log <- log(lib_size_mean) - sigma_log^2 / 2
 
     library_size <- round(exp(rnorm(n_samples, mu_log, sigma_log)))
   } else {
     # Validate library size length
-    if(length(library_size) != (n1 + n2) * 3) {
+    if (length(library_size) != (n1 + n2) * 3) {
       stop("library_size must have length (n1 + n2) * 3")
     }
   }
@@ -118,17 +123,13 @@ simcounts2 <- function(n1 = 5,
   # A function to predict phi from model parameters
   # or use hard-coded values from approximation
   phi_predict <- function(phi_model, log_mu) {
-
-    if(is.null(phi_model)) {
-
+    if (is.null(phi_model)) {
       phi <- 0.9273216 +
         (-0.3868206) * log_mu +
         0.3816686 * log_mu^2 +
         (-0.0549217) * log_mu^3 +
         0.0021181 * log_mu^4
-
     } else {
-
       phi <- predict(phi_model, newdata = data.frame(log_mu = log_mu))
       phi # This is on the log scale (noted in details)
     }
@@ -138,16 +139,15 @@ simcounts2 <- function(n1 = 5,
 
   # A function to extract the sigma from a phi-prediction model
   phi_sigma <- function(phi_model) {
-
-    if(is.null(phi_model)) {
+    if (is.null(phi_model)) {
       phi_sigma <- 4.25
     }
 
-    if(inherits(phi_model, "loess")) {
+    if (inherits(phi_model, "loess")) {
       phi_sigma <- phi_model$s
     }
 
-    if(inherits(phi_model, "lm")) {
+    if (inherits(phi_model, "lm")) {
       phi_sigma <- sigma(phi_model)
     }
 
@@ -156,24 +156,31 @@ simcounts2 <- function(n1 = 5,
 
   # The coefficient matrix contain all parameter values collected
   # row-wise.
-  coef_mat <- matrix(c(beta0,
-                       conditionB,
-                       timet2,
-                       timet3,
-                       conditionB_timet2,
-                       conditionB_timet3),
-                     ncol = 6)
-  colnames(coef_mat) <- c("Intercept", "conditionB", "timet2",
-                          "timet3", "conditionB:timet2", "conditionB:timet3")
+  coef_mat <- matrix(
+    c(beta0, conditionB, timet2, timet3, conditionB_timet2, conditionB_timet3),
+    ncol = 6
+  )
+  colnames(coef_mat) <- c(
+    "Intercept",
+    "conditionB",
+    "timet2",
+    "timet3",
+    "conditionB:timet2",
+    "conditionB:timet3"
+  )
 
   # Create the predictor data frame
-  design <-  rbind(
-    expand.grid(id = paste0("A", 1:n1),
-                time = c("t1", "t2", "t3"),
-                condition = c("A")),
-    expand.grid(id = paste0("B", 1:n2),
-                time = c("t1", "t2", "t3"),
-                condition = c("B"))
+  design <- rbind(
+    expand.grid(
+      id = paste0("A", 1:n1),
+      time = c("t1", "t2", "t3"),
+      condition = c("A")
+    ),
+    expand.grid(
+      id = paste0("B", 1:n2),
+      time = c("t1", "t2", "t3"),
+      condition = c("B")
+    )
   )
 
   # Adding library sizes to the design
@@ -184,26 +191,36 @@ simcounts2 <- function(n1 = 5,
 
   # Function to simulate one gene
   simulate_one_gene <- function(i) {
-
     # Combine fixed effects to get the eta
-    eta_fixed <- mod_mat %*% coef_mat[i,]
+    eta_fixed <- mod_mat %*% coef_mat[i, ]
 
     # Add library size offset
     offset <- log(library_size / median(library_size))
 
     # Adding varying effects (non-correlated)
     b_0 <- c(rep(rnorm(n1, 0, b0[i]), 3), rep(rnorm(n2, 0, b0[i]), 3))
-    b_1 <- c(rep(0, n1), rnorm(n1, 0, b1[i]), rep(0, n1),
-             rep(0, n2), rnorm(n2, 0, b1[i]), rep(0, n2))
-    b_2 <- c(rep(0, n1), rep(0, n1), rnorm(n1, 0, b2[i]),
-             rep(0, n2), rep(0, n2), rnorm(n2, 0, b2[i]))
+    b_1 <- c(
+      rep(0, n1),
+      rnorm(n1, 0, b1[i]),
+      rep(0, n1),
+      rep(0, n2),
+      rnorm(n2, 0, b1[i]),
+      rep(0, n2)
+    )
+    b_2 <- c(
+      rep(0, n1),
+      rep(0, n1),
+      rnorm(n1, 0, b2[i]),
+      rep(0, n2),
+      rep(0, n2),
+      rnorm(n2, 0, b2[i])
+    )
 
     # Combining all parameters into the linear predictor eta.
     eta_full <- eta_fixed + offset + b_0 + b_1 + b_2
 
     # Cap the eta_full at max_prop of median library size
     eta_full <- pmin(eta_full, log(median(library_size) * max_prop))
-
 
     # Get the phi from predictive model and combine with phi_sigma
     log_phi <- phi_predict(phi_model, log(mean(exp(eta_fixed))))
@@ -235,8 +252,5 @@ simcounts2 <- function(n1 = 5,
   # Add sample ID to design
   design$seq_sample_id <- paste0(design$id, "_", design$time)
 
-  return(list(counts = counts,
-              eta = eta,
-              phi = phi,
-              metadata = design))
+  return(list(counts = counts, eta = eta, phi = phi, metadata = design))
 }
