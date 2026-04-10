@@ -1,4 +1,9 @@
 
+# seqwrap 0.6.1
+
+- Updated the README
+
+
 # seqwrap 0.6.0
 
 - Bugs

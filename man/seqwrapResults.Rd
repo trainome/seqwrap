@@ -9,7 +9,8 @@ seqwrapResults(
   models = NULL,
   summaries = NULL,
   evaluations = NULL,
-  errors = structure(list(), names = character(0), row.names = integer(0), class = "data.frame"),
+  errors = structure(list(), names = character(0), row.names = integer(0), class =
+    "data.frame"),
   n = integer(0),
   k = integer(0),
   call_arguments = character(0),

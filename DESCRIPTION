@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
 Title: Item-By-Item Iterative Model Fitting
-Version: 0.6.0
+Version: 0.6.1
 Authors@R: c(
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
