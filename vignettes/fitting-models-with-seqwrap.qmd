@@ -35,6 +35,8 @@ library(seqwrap)
 library(edgeR)
 library(gt)
 
+n_cores <- if (nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_"))) 2L else 12L
+
 # Load data 
 d <- dungan_counts
 
@@ -266,7 +268,7 @@ We should expect some errors from modelling many thousands of targets. As seen i
 m1.2_results <- seqwrap(
   m1.1,
   eval_fun = dispersion_fun,
-  cores = 12, 
+  cores = n_cores,
   return_models = FALSE,
   verbose = FALSE
 )
@@ -313,18 +315,15 @@ m1.2_sum <- seqwrap_summarise(m1.2_results, verbose = FALSE)
 #| label: fig-dungan-estimates
 
 library(cowplot)
-library(ggtext)
 
 
-p1 <- m1.2_sum$evaluations |> 
-  ggplot(aes(log_mu, dispersion)) + 
-  geom_point(alpha = 0.2) + 
-  geom_smooth(se = FALSE, color = "orange") + 
+p1 <- m1.2_sum$evaluations |>
+  ggplot(aes(log_mu, dispersion)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(se = FALSE, color = "orange") +
   theme_classic() +
-  labs(x = "Average raw counts log(&mu;) ", 
-       y = "Dispersion log(&theta;)") + 
-  theme(axis.title.x = element_markdown(), 
-        axis.title.y = element_markdown())
+  labs(x = expression(paste("Average raw counts ", log(mu))),
+       y = expression(paste("Dispersion ", log(theta))))
   
 
 p2 <- m1.2_sum$summaries |> 
@@ -446,9 +445,9 @@ Running the prototyping seems to work, we will proceed with the full data set.
 ```{r}
 
 m1.3_results <- seqwrap(
-  m1.3, 
-  cores = 12,
-  return_models = FALSE, 
+  m1.3,
+  cores = n_cores,
+  return_models = FALSE,
   verbose = FALSE
 )
 
@@ -467,9 +466,9 @@ The summaries data frame is easily manipulated in subsequent analysis steps to, 
 #| warning: false
 #| label: fig-dungan-final-estimates
 
+library(ggtext)
 
-
-m1.3_sum$summaries |> 
+m1.3_sum$summaries |>
 
   filter(term == "treatmentSenolytic:surgeryOverload") |> 
   mutate(fdr = p.adjust(p.value, method = "fdr"), 

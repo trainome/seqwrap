@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
 Title: Item-By-Item Iterative Model Fitting
-Version: 0.6.1
+Version: 0.6.2
 Authors@R: c(
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
@@ -39,10 +39,13 @@ Suggests:
     lme4,
     nlme,
     MASS,
-    rmarkdown, 
-    gt, 
+    rmarkdown,
+    gt,
     edgeR,
-    tidyselect
+    tidyselect,
+    ggplot2,
+    cowplot,
+    ggtext
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
 Collate: 

@@ -3,21 +3,6 @@
 \name{seqwrapResults}
 \alias{seqwrapResults}
 \title{seqwrapResults class}
-\usage{
-seqwrapResults(
-  .data = list(),
-  models = NULL,
-  summaries = NULL,
-  evaluations = NULL,
-  errors = structure(list(), names = character(0), row.names = integer(0), class =
-    "data.frame"),
-  n = integer(0),
-  k = integer(0),
-  call_arguments = character(0),
-  call_engine = character(0),
-  elapsed_time = numeric(0)
-)
-}
 \arguments{
 \item{.data}{A list containing initial data (inherited from S7::class_list)}
 

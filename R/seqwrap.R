@@ -72,6 +72,7 @@ null_or_function <- S7::new_property(
 #' @param elapsed_time An proc.time() object giving the time needed to complete
 #' iterative model fitting.
 #'
+#' @usage NULL
 #'
 #' @export
 seqwrapResults <- S7::new_class(
@@ -113,6 +114,8 @@ seqwrapResults <- S7::new_class(
 #' @param exported A list of objects to export to workers
 #' @param model_print Character representation of model function
 #' @param arguments_print Character representation of arguments
+#'
+#' @usage NULL
 #'
 #' @export
 swcontainer <- S7::new_class(
@@ -173,19 +176,20 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
   if (any(errors_sum[-1] > 0)) {
     cli::cli_alert_info("Some targets had associated errors or warnings")
 
+    k <- x@k
     cli::cli_inform(c(
       "*" = "Fitting algorithm (errors): n = {errors_sum[2]}
-      ({100 * (errors_sum[2]/k)}%)",
+      ({round(100 * (errors_sum[2]/k))}%)",
       "*" = "Fitting algorithm (warnings): n = {errors_sum[3]}
-      ({100 * (errors_sum[3]/k)}%)",
+      ({round(100 * (errors_sum[3]/k))}%)",
       "*" = "Summary function (errors): n = {errors_sum[4]}
-      ({100 * (errors_sum[4]/k)}%)",
+      ({round(100 * (errors_sum[4]/k))}%)",
       "*" = "Summary function (warnings): n = {errors_sum[5]}
-      ({100 * (errors_sum[5]/k)}%)",
+      ({round(100 * (errors_sum[5]/k))}%)",
       "*" = "Evaluation function (errors): n = {errors_sum[6]}
-      ({100 * (errors_sum[6]/k)}%)",
+      ({round(100 * (errors_sum[6]/k))}%)",
       "*" = "Evaluation function (warnings): n = {errors_sum[7]}
-      ({100 * (errors_sum[7]/k)}%)"
+      ({round(100 * (errors_sum[7]/k))}%)"
     ))
   } else cli::cli_alert_info("No targets had associated errors or warnings")
 

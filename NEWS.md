@@ -1,4 +1,11 @@
 
+
+# seqwrap 0.6.2
+
+- Bugs
+  * Fixed a bug in printing seqwrap_results where the variable k was not declared in the function environment. 
+  * Fixed SUGGEST dependencies for Vignette build.
+
 # seqwrap 0.6.1
 
 - Updated the README
