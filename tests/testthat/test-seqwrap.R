@@ -115,7 +115,7 @@ test_that("Model summaries and evaluations returns expected results", {
   }
 
   # Simulate data
-  dat <- seqwrap:::simcounts(
+  dat <- seqwrap::simcounts(
     seed = 1,
     n_samples = 40,
     n_genes = 10,

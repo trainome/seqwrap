@@ -3,7 +3,7 @@
 \name{seqwrap}
 \alias{seqwrap}
 \title{A flexible upper-level wrapper for iterative modelling using any available
-fitting algorithm.}
+fitting algorithm}
 \usage{
 seqwrap(
   y = NULL,
@@ -79,7 +79,7 @@ on disk to save working memory.}
 
 \item{subset}{A sequence, random samples or integers to indicate which
 rows to keep in data. This is useful if you want to test the model in a
-subset of targets. If keft to the default (NULL), all rows will be used.}
+subset of targets. If left to the default (NULL), all rows will be used.}
 
 \item{cores}{An integer indicating the number of cores to be used in parallel
 computations. If NULL, a sequential for loop is used. If "max", all
@@ -95,7 +95,7 @@ function; evaluations, a list of diagnostics created from eval_fun.
 }
 \description{
 A flexible upper-level wrapper for iterative modelling using any available
-fitting algorithm.
+fitting algorithm
 }
 \details{
 This function provides a flexible wrapper to fit, summarize and

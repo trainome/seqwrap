@@ -23,6 +23,13 @@ seqwrap_summarise(
 
 \item{verbose, }{Logical should progress be printed? Default TRUE}
 }
+\value{
+A list (invisibly) with up to two data frames: \code{summaries},
+combined parameter summaries from each model, and \code{evaluations}, combined
+diagnostics from each model. Entries are omitted when the corresponding
+slot of \code{x} is empty or the user disables them via the \code{summaries} /
+\code{evaluations} arguments.
+}
 \description{
 Summarise seqwrapResults objects
 }

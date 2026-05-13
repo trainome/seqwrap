@@ -2,7 +2,9 @@
 #' @param fun Name of a fitting function, like glmmTMB::glmmTMB
 #' @param arg A list of arguments that can be evaluated by the fitting function
 #' @param vars A list of variables to be used in the fitting function
+#' @return A fitted model object returned by `fun`.
 #' @keywords internal
+#' @noRd
 fit_fun <- function(fun, arg, vars = NULL) {
   if (!is.null(vars)) {
     # Convert data frame to list if needed
@@ -71,7 +73,9 @@ fit_fun <- function(fun, arg, vars = NULL) {
 #' @param fun The fitting function, nlme::lme
 #' @param arg A list of arguments that can be evaluated by the fitting function
 #' @param vars A list of variables to be used in the fitting function
+#' @return A fitted `lme`/`gls` model object returned by `fun`.
 #' @keywords internal
+#' @noRd
 fit_fun_lme <- function(fun, arg, vars = NULL) {
 
   # Create an environment for the evaluation
@@ -218,12 +222,16 @@ fit_fun_lme <- function(fun, arg, vars = NULL) {
 #' @param arg_list Arguments from the upper level function
 #' @param mt_summary_fun Summary function from the upper level function
 #' @param mt_eval_fun Evaluation function from the upper level function
-#' @return_mod Logical, should the models be returned as part of the results?
+#' @param return_mod Logical, should the models be returned as part of the
+#'   results?
 #' @param save_mods Logical, should the models be saved?
 #' @param mod_path Path to save the models
 #' @param ffun the fitting function from the upper level function
+#' @return A list with the fitted model (if `return_mod = TRUE`), summary
+#'   and evaluation outputs, and any errors/warnings captured during fitting.
 #' @importFrom stats as.formula
 #' @keywords internal
+#' @noRd
 seqwrap_mtf <- function(
   x,
   samp_name,

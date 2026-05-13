@@ -25,6 +25,10 @@
 \item{elapsed_time}{An proc.time() object giving the time needed to complete
 iterative model fitting.}
 }
+\value{
+An S7 object of class \code{seqwrap_results} storing fitted models,
+summaries, evaluations, and diagnostic information from a \code{seqwrap()} run.
+}
 \description{
 seqwrapResults constructor function.
 }

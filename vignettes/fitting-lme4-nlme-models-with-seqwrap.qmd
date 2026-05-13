@@ -16,7 +16,21 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-The `seqwrap` function lets the user specify which modeling algorithm to use when modeling data provided as a data frame and metadata describing each sample. Target-specific models are passed to the results together with optional user-specified summary and model-evaluation functions. The function aims not to limit the user to the preferences of specific models. This allows for comparisons between modeling frameworks and flexibility for many types of high-dimensional data. In this vignette, three popular packages are applied to the same underlying data with varying model definitions. 
+```{r}
+#| label: setup
+#| include: false
+
+required_pkgs <- c("glmmTMB", "lme4", "nlme")
+have_all <- all(vapply(
+  required_pkgs,
+  requireNamespace,
+  logical(1),
+  quietly = TRUE
+))
+knitr::opts_chunk$set(eval = have_all)
+```
+
+The `seqwrap` function lets the user specify which modeling algorithm to use when modeling data provided as a data frame and metadata describing each sample. Target-specific models are passed to the results together with optional user-specified summary and model-evaluation functions. The function aims not to limit the user to the preferences of specific models. This allows for comparisons between modeling frameworks and flexibility for many types of high-dimensional data. In this vignette, three popular packages are applied to the same underlying data with varying model definitions.
 
 
 ### Fitting count data to a negative binomial model using `glmmTBM`

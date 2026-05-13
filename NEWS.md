@@ -1,5 +1,24 @@
 
 
+# seqwrap 0.6.3
+
+- CRAN-readiness pass:
+  * Title case in DESCRIPTION ("Item-by-Item").
+  * Bumped `Depends: R (>= 4.1)` to reflect use of the native pipe in vignettes.
+  * Replaced a non-canonical CRAN URL in the main vignette.
+  * Added `@return` documentation to `seqwrap_summarise()`, `simcounts()`,
+    `seqwrapResults`, and `swcontainer`.
+  * Marked internal helpers (`seqwrap_check`, `fit_fun`, `fit_fun_lme`,
+    `data_helper`, `seqwrap_mtf`) with `@noRd` so they no longer generate
+    user-facing Rd pages.
+  * Replaced `seqwrap:::simcounts` with `seqwrap::simcounts` in tests.
+  * Fixed handling of `cores = "max"` and `cores = NULL` in `seqwrap()`;
+    invalid values now error early.
+  * Vignettes gracefully skip evaluation when optional Suggests packages
+    (including Bioconductor `edgeR`) are unavailable.
+  * Minor typo and roxygen-tag fixes.
+
+
 # seqwrap 0.6.2
 
 - Bugs

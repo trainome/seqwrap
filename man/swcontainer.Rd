@@ -32,6 +32,10 @@
 
 \item{arguments_print}{Character representation of arguments}
 }
+\value{
+An S7 object of class \code{swcontainer} bundling data, metadata,
+and the modelling function plus arguments to be consumed by \code{seqwrap()}.
+}
 \description{
 The seqwrap container is used to store and validate data input
 to the to seqwrap.

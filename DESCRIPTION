@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
-Title: Item-By-Item Iterative Model Fitting
-Version: 0.6.2
+Title: Item-by-Item Iterative Model Fitting
+Version: 0.6.3
 Authors@R: c(
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
@@ -19,8 +19,8 @@ LazyData: true
 LazyDataCompression: xz
 URL: https://github.com/trainome/seqwrap
 BugReports: https://github.com/trainome/seqwrap/issues
-Depends: 
-    R (>= 4.0)
+Depends:
+    R (>= 4.1)
 Imports:
     cli,
     S7,
@@ -30,9 +30,10 @@ Imports:
     stats,
     DHARMa,
     broom.mixed
-Suggests: 
+Suggests:
     testthat (>= 3.0.0),
     dplyr,
+    knitr,
     purrr,
     quarto,
     glmmTMB,
@@ -45,7 +46,8 @@ Suggests:
     tidyselect,
     ggplot2,
     cowplot,
-    ggtext
+    ggtext,
+    R.rsp
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
 Collate: 
@@ -58,4 +60,4 @@ Collate:
     'seqwrap_mtf.R'
     'simcounts.R'
     'simcounts2.R'
-VignetteBuilder: quarto
+VignetteBuilder: quarto, R.rsp

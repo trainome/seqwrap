@@ -12,19 +12,43 @@ author:
         department: Department of Public Health and Sport Sciences 
 csl: resources/bmc-bioinformatics.csl
 bibliography: resources/bibliography.bib
-vignette: >
-  %\VignetteIndexEntry{Fitting models with seqwrap}
-  %\VignetteEngine{quarto::html}
-  %\VignetteEncoding{UTF-8}
+format:
+  html:
+    embed-resources: true
+editor_options:
+  chunk_output_type: console
 ---
 
-The `seqwrap` package is designed to iterate over multiple targets in a high-dimensional data set to fit a user-defined regression model using a user-selected model fitting function. Each target may represent, e.g., a gene, an exon, a protein, a methylation site, or any other outcome from a high-throughput omics platform. Each target is measured across a set of samples, with a metadata set used to describe study covariates. In the basic case, data and metadata are combined in each iteration to fit the selected model. 
+```{r}
+#| label: setup
+#| include: false
+
+# Skip the vignette gracefully if optional packages (some on Bioconductor)
+# are not installed on the machine building the documentation.
+required_pkgs <- c(
+  "dplyr", "ggplot2", "edgeR", "gt", "glmmTMB",
+  "broom.mixed", "purrr", "cowplot", "ggtext"
+)
+have_all <- all(vapply(
+  required_pkgs,
+  requireNamespace,
+  logical(1),
+  quietly = TRUE
+))
+knitr::opts_chunk$set(eval = have_all)
+
+
+
+
+```
+
+The `seqwrap` package is designed to iterate over multiple targets in a high-dimensional data set to fit a user-defined regression model using a user-selected model fitting function. Each target may represent, e.g., a gene, an exon, a protein, a methylation site, or any other outcome from a high-throughput omics platform. Each target is measured across a set of samples, with a metadata set used to describe study covariates. In the basic case, data and metadata are combined in each iteration to fit the selected model.
 
 Dungan et al. [@dungan2022] evaluated a senolytic treatment (dasatinib and quercetin) in mouse skeletal muscle subjected to mechanical overload through synergist ablation. The study included sham surgery and a vehicle control, allowing analysis of the effect of senolytic treatment and the interaction between mechanical overloading and senolytic treatment. RNA-seq was performed on 20 animals (5 per group). The data are available in the `seqwrap` package under `dungan_counts`. We will load the data and filter low-expression genes.
 
 
 ```{r}
-#| labels: packages-and-data 
+#| labels: packages-and-data
 #| message: false
 #| warning: false
 
@@ -35,11 +59,12 @@ library(seqwrap)
 library(edgeR)
 library(gt)
 
-n_cores <- if (nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_"))) 2L else 12L
+# This vignette is pre-rendered by the package maintainer (not built on CRAN),
+# so n_cores can be tuned to the rendering machine.
+
+n_cores <- parallel::detectCores()
 
 # Load data 
-d <- dungan_counts
-
 metadata <- dungan_counts$metadata
 counts <- dungan_counts$countdata
 
@@ -110,7 +135,7 @@ n_genes <- nrow(counts)
 
 ```
 
-The data suggests a negative binomial model where the linear predictor can be used to assess the difference between senolytic treatment and control (treat; $\beta_1g$), mechanical overloading compared to sham surgery (mov; $\beta_2g$), and their interaction ($\beta_3g$) for gene *g* in 1 to `r n_genes` and row *i* in 1 to 20 of the meta data (@eq-m1). We want to control for differences in sequencing depth by including an offset (*s*~i~). We will use the TMM method [@robinson2010] to calculate the effective library size.
+The data suggests a negative binomial model were the linear predictor can be used to assess the difference between senolytic treatment and control (treat; $\beta_1g$), mechanical overloading compared to sham surgery (mov; $\beta_2g$), and their interaction ($\beta_3g$) for gene *g* in 1 to `r n_genes` and row *i* in 1 to 20 of the meta data (@eq-m1). We want to control for differences in sequencing depth by including an offset (*s*~i~). We will use the TMM method [@robinson2010] to calculate the effective library size.
 
 
 $$
@@ -179,7 +204,7 @@ Following iterative fitting using `seqwrap`, we can summarize the models using `
 
 In the `summaries` slot, model parameter values are returned (see @tbl-dungan-sum-temp). These are produced using `broom.mixed::tidy` which is a general function to retrieve model parameters from many regression model packages in R. 
 
-In the `evaluations` slot, each model is evaluated using tests from the [DHARMa package](https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html) (see @tbl-dungan-eval-temp). 
+In the `evaluations` slot, each model is evaluated using tests from the [DHARMa package](https://CRAN.R-project.org/package=DHARMa) (see @tbl-dungan-eval-temp). 
 
 ```{r}
 
@@ -211,7 +236,7 @@ m1.1_temp_sum$summaries |>
 #| message: false
 #| warning: false
 #| label: tbl-dungan-eval-temp
-#| tbl-cap: "The first ten rows from summarised preliminary models (model evaluations). Values are p-values from the DHARMa package (see [here for details](https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html))."
+#| tbl-cap: "The first ten rows from summarised preliminary models (model evaluations). Values are p-values from the DHARMa package (see [here for details](https://CRAN.R-project.org/package=DHARMa))."
 
 
 m1.1_temp_sum$evaluations |> 

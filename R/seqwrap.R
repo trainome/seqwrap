@@ -72,6 +72,9 @@ null_or_function <- S7::new_property(
 #' @param elapsed_time An proc.time() object giving the time needed to complete
 #' iterative model fitting.
 #'
+#' @return An S7 object of class `seqwrap_results` storing fitted models,
+#' summaries, evaluations, and diagnostic information from a `seqwrap()` run.
+#'
 #' @usage NULL
 #'
 #' @export
@@ -114,6 +117,9 @@ seqwrapResults <- S7::new_class(
 #' @param exported A list of objects to export to workers
 #' @param model_print Character representation of model function
 #' @param arguments_print Character representation of arguments
+#'
+#' @return An S7 object of class `swcontainer` bundling data, metadata,
+#' and the modelling function plus arguments to be consumed by `seqwrap()`.
 #'
 #' @usage NULL
 #'
@@ -391,11 +397,14 @@ S7::method(seqwrap_update, swcontainer) <- function(
 
 #' Check swcontainer objects for seqwrap
 #'
-#' This function performs verbose checks/diagnostics of a swcontainer object
+#' This function performs verbose checks/diagnostics of a swcontainer object.
 #'
 #' @param x A swcontainer object
 #' @param verbose Logical, should the function print diagnostics? Default TRUE
-#' @return A list of diagnostics
+#' @return `TRUE` (invisibly) when the container is consistent; otherwise
+#' calls `cli::cli_abort()` with a descriptive message.
+#' @keywords internal
+#' @noRd
 seqwrap_check <- function(x, verbose = TRUE) {
   # Check if the container is a swcontainer object
   if (!S7::S7_inherits(x, swcontainer)) {
@@ -554,7 +563,7 @@ seqwrap_check <- function(x, verbose = TRUE) {
 # }
 
 #' A flexible upper-level wrapper for iterative modelling using any available
-#' fitting algorithm.
+#' fitting algorithm
 #'
 #'
 #' @inheritParams seqwrap_compose
@@ -568,7 +577,7 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' @param model_path A character. The path to saved models.
 #' @param subset A sequence, random samples or integers to indicate which
 #' rows to keep in data. This is useful if you want to test the model in a
-#' subset of targets. If keft to the default (NULL), all rows will be used.
+#' subset of targets. If left to the default (NULL), all rows will be used.
 #' @param cores An integer indicating the number of cores to be used in parallel
 #'  computations. If NULL, a sequential for loop is used. If "max", all
 #'  available cores are used.
@@ -702,9 +711,15 @@ seqwrap <- function(
   }
 
   # Determine the number of cores
-  if (is.null(cores)) num_cores <- 1
-  if (cores >= parallel::detectCores()) num_cores <- parallel::detectCores()
-  if (cores <= parallel::detectCores()) num_cores <- cores
+  if (is.null(cores)) {
+    num_cores <- 1L
+  } else if (is.character(cores) && identical(cores, "max")) {
+    num_cores <- parallel::detectCores()
+  } else if (is.numeric(cores) && length(cores) == 1L) {
+    num_cores <- min(as.integer(cores), parallel::detectCores())
+  } else {
+    stop("'cores' must be NULL, a single integer, or the string \"max\"")
+  }
 
   # Catch the function calls for printing
   funcall <- match.call()
@@ -875,7 +890,11 @@ seqwrap <- function(
 #' functions applied in each iteration during modelling. The function expects
 #' that the summary and evaluation functions return data frames.
 #'
-#'
+#' @return A list (invisibly) with up to two data frames: `summaries`,
+#' combined parameter summaries from each model, and `evaluations`, combined
+#' diagnostics from each model. Entries are omitted when the corresponding
+#' slot of `x` is empty or the user disables them via the `summaries` /
+#' `evaluations` arguments.
 #'
 #' @export
 seqwrap_summarise <- function(

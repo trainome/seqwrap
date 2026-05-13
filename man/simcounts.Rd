@@ -2,7 +2,7 @@
 % Please edit documentation in R/simcounts.R
 \name{simcounts}
 \alias{simcounts}
-\title{Simulate counts from a simple experiment (paired or unpaierd) using
+\title{Simulate counts from a simple experiment (paired or unpaired) using
 Poisson or negative binomial distributions.}
 \usage{
 simcounts(
@@ -39,9 +39,16 @@ simcounts(
 \item{sample_sd}{SD of sample-specific effects.}
 
 \item{overdispersion_min_max}{Range of overdispersion parameter. If NULL,
-the Poisson distrubution is used to simulate data.}
+the Poisson distribution is used to simulate data.}
 
 \item{seed}{Random seed for reproducibility.}
+}
+\value{
+A list with three elements: \code{data}, a data frame of simulated
+counts with one row per gene and one column per sample (first column
+identifies the gene); \code{parameters}, a data frame of true gene-wise
+coefficients and overdispersion values; and \code{metadata}, a data frame of
+sample-level covariates (\code{sample}, \code{cluster}, \code{x}).
 }
 \description{
 This function is used for internal testing and tutorials.

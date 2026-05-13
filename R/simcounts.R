@@ -1,4 +1,4 @@
-#' Simulate counts from a simple experiment (paired or unpaierd) using
+#' Simulate counts from a simple experiment (paired or unpaired) using
 #' Poisson or negative binomial distributions.
 #'
 #' This function is used for internal testing and tutorials.
@@ -16,10 +16,15 @@
 #' @param clusters Number of clusters. If NULL, non-paired data is simulated.
 #' @param sample_sd SD of sample-specific effects.
 #' @param overdispersion_min_max Range of overdispersion parameter. If NULL,
-#' the Poisson distrubution is used to simulate data.
+#' the Poisson distribution is used to simulate data.
 #' @param seed Random seed for reproducibility.
 #' @importFrom stats rnorm runif rpois rnbinom
 #'
+#' @return A list with three elements: `data`, a data frame of simulated
+#' counts with one row per gene and one column per sample (first column
+#' identifies the gene); `parameters`, a data frame of true gene-wise
+#' coefficients and overdispersion values; and `metadata`, a data frame of
+#' sample-level covariates (`sample`, `cluster`, `x`).
 #'
 #' @export
 simcounts <- function(n_genes = 10,

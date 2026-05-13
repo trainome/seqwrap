@@ -13,6 +13,7 @@
 #' data frame over all samples and a target-specific data frame with values
 #' specific to target.
 #' @keywords internal
+#' @noRd
 data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
 
   # Convert tibble to data.frame. This assumes that data comes in
@@ -99,7 +100,7 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
     dfs <- list()
 
     # For each row index
-    for (i in 1:row_counts[1]) {
+    for (i in seq_len(row_counts[1])) {
       # Create a new data frame for this row
       new_df <- data.frame(row.names = df_names)
 
@@ -109,7 +110,7 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
       result_name <- as.character(first_df[i, 1])
 
       # For each original data frame
-      for (j in 1:length(dat)) {
+      for (j in seq_along(dat)) {
         df_name <- df_names[j]
         current_df <- dat[[j]]
 

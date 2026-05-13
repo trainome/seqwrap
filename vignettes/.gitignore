@@ -1,2 +1,3 @@
 *.html
 *.R
+!fitting-models-with-seqwrap.html
