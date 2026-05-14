@@ -17,6 +17,7 @@
   * Vignettes gracefully skip evaluation when optional Suggests packages
     (including Bioconductor `edgeR`) are unavailable.
   * Minor typo and roxygen-tag fixes.
+- Removed the Pillon data set (moved to trainome/seqwrappaper)
 
 
 # seqwrap 0.6.2
