@@ -80,7 +80,115 @@ should be used in model summarise or evaluations.}
 A swcontainer object for direct use in seqwrap.
 }
 \description{
-This function makes it possible to run checks on combined data sets
-(meta data and target data) and fitting functions to avoid issues
-in iterative modelling.
+This function makes it possible to compose and  run checks on combined
+data sets (meta data and target data) and fitting functions to avoid issues
+in iterative modelling. See examples and vignettes for details.
+}
+\examples{
+# Load packages and prepare data for examples -------------------------------
+
+library(seqwrap)
+library(glmmTMB)
+
+dat <- simcounts2()
+
+# Save simulated data as separate objects
+counts <- dat$counts
+metadata <- dat$metadata
+
+# Prepare library size for use as offset
+metadata$ln_libsize <- log(metadata$library_size)
+
+
+# A mixed effects negative binomial model of RNA-seq counts -----------------
+
+# Populate the seqwrap container
+container <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  arguments = list(
+    formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+    family = glmmTMB::nbinom2()
+  ),
+  data = counts,
+  metadata = metadata,
+  samplename = "seq_sample_id"
+)
+
+# Run seqwrap using the container
+results <- seqwrap(container,
+                   cores = 1)
+
+
+
+
+# Summarise results
+summaries <- seqwrap_summarise(results)
+
+
+# Including target-specific data --------------------------------------------
+
+# Target specific data can be supplied to seqwrap_compose to enable, e.g.,
+# the use of priors for empirical Bayes shrinkage. In this example we are
+# setting a dummy-prior on the `condition` parameter and target-specific
+# prior on the dispersion parameter.
+
+fixef_priors <- data.frame(
+  prior = "normal(0, 1)",
+  class = "fixef",
+  coef = "conditionB"
+)
+
+dips_priors <- data.frame(
+  prior = c(
+    "normal(0.5, 0.25)",
+    "normal(1, 0.25)"),
+  class = "fixef_disp",
+  coef = 1
+)
+
+
+# Combine information in target-specific list
+prior_list <- list()
+for(i in 1:2) {
+
+  prior_list[[i]] <- rbind(
+    fixef_priors,
+    dips_priors[i,]
+  )
+
+
+}
+
+
+
+container <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  # NOTE: The use of `alist` prevents evaluation of list components
+  arguments = alist(
+    formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+    family = glmmTMB::nbinom2(),
+    priors = data.frame(
+      prior = prior,
+      class = class,
+      coef = coef
+    )
+  ),
+  data = counts,
+  metadata = metadata,
+  targetdata = prior_list,
+  samplename = "seq_sample_id"
+)
+
+# Run seqwrap using the container
+results_prior <- seqwrap(container,
+                         # Return models to confirm use of prior information
+                         # The use of prior information is not recommended
+                         return_models = TRUE,
+                         cores = 1)
+
+# Confirm prior information
+summary(results_prior@models[[1]])
+# Compare to naive model
+summary(results@models[[1]])
+
 }

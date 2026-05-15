@@ -38,3 +38,51 @@ This functions attempts to summarize results from the summary and evaluation
 functions applied in each iteration during modelling. The function expects
 that the summary and evaluation functions return data frames.
 }
+\examples{
+# Load packages and prepare data for examples -------------------------------
+
+library(seqwrap)
+library(glmmTMB)
+
+# Simulate n targets
+dat <- simcounts(n_genes = 10000)
+
+# Save simulated data as separate objects
+counts <- dat$data
+metadata <- dat$metadata
+
+# Prepare library size for use as offset
+metadata$ln_libsize <- log(colSums(counts[,-1]))
+
+
+# A mixed effects negative binomial model of RNA-seq counts -----------------
+
+# Populate the seqwrap container
+container <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  arguments = list(
+    formula = y ~ x + (1|cluster) + offset(ln_libsize),
+    family = glmmTMB::nbinom2()
+  ),
+  data = counts,
+  metadata = metadata,
+  samplename = "sample"
+)
+
+# Run seqwrap using the container on a subset of targets
+results <- seqwrap(container,
+                   subset = 1:5,
+                   cores = 1)
+
+
+# Summarise results only contains the subset
+summaries <- seqwrap_summarise(results)
+
+# Get summaries
+summaries$summaries
+
+# Get model evaluations
+summaries$evaluations
+
+
+}

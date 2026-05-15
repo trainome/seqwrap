@@ -13,8 +13,15 @@ See the package Vignettes for examples.
 
 ## Installing
 
-`seqwrap` can be installed from GitHub:
+Install the released version of `seqwrap` from CRAN:
 
 ``` r
-remotes::install_github("trainome/seqwrap")
+install.packages("seqwrap")
+```
+
+Or install the development version from GitHub:
+
+``` r
+# install.packages("pak")
+pak::pkg_install("trainome/seqwrap")
 ```

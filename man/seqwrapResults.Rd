@@ -32,3 +32,26 @@ summaries, evaluations, and diagnostic information from a \code{seqwrap()} run.
 \description{
 seqwrapResults constructor function.
 }
+\examples{
+# seqwrapResults is the S7 class returned by seqwrap(). End users do
+# not normally call the constructor directly -- it is invoked
+# internally once iterative model fitting has finished.
+
+library(seqwrap)
+
+dat <- simcounts(n_genes = 5)
+
+container <- seqwrap_compose(
+  modelfun = stats::lm,
+  arguments = list(formula = y ~ x),
+  data = dat$data,
+  metadata = dat$metadata,
+  samplename = "sample"
+)
+
+results <- seqwrap(container, subset = 1:2, cores = 1)
+
+# The object returned by seqwrap() is a seqwrapResults instance
+S7::S7_inherits(results, seqwrapResults)
+
+}

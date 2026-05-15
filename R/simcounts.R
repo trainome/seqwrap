@@ -26,20 +26,35 @@
 #' coefficients and overdispersion values; and `metadata`, a data frame of
 #' sample-level covariates (`sample`, `cluster`, `x`).
 #'
+#' @examples
+#' # Simulate n targets from the negative binomial distribution
+#' dat <- simcounts(n_genes = 10,
+#'                  overdispersion_min_max = c(1, 5))
+#'
+#' # Simulate n targets from the Poisson distribution
+#' dat <- simcounts(n_genes = 10,
+#'                  overdispersion_min_max = NULL)
+#'
+#'
+#' # Data are organized in counts
+#' dat$data
+#' # .. and meta data
+#' dat$metadata
+#'
 #' @export
-simcounts <- function(n_genes = 10,
-                      n_samples = 16,
-                      beta_0 = 1,
-                      sigma_0 = 0.5,
-                      beta_1 = 1,
-                      sigma_1 = 0.5,
-                      b_0 = 0.5,
-                      clusters = 8,
-                      sample_sd = 0.5,
-                      overdispersion_min_max = c(1,10),
-                      seed = 123) {
-
-
+simcounts <- function(
+  n_genes = 10,
+  n_samples = 16,
+  beta_0 = 1,
+  sigma_0 = 0.5,
+  beta_1 = 1,
+  sigma_1 = 0.5,
+  b_0 = 0.5,
+  clusters = 8,
+  sample_sd = 0.5,
+  overdispersion_min_max = c(1, 10),
+  seed = 123
+) {
   set.seed(seed)
   # Draw gene-specific effects
   beta_0 <- rnorm(n_genes, mean = beta_0, sd = sigma_0)
@@ -52,7 +67,7 @@ simcounts <- function(n_genes = 10,
       stop("Clusters must be provided when b_0 is not NULL.")
     }
     cluster_effects <- rnorm(clusters, mean = 0, sd = b_0)
-    cluster_effects <- rep(cluster_effects, n_samples/clusters)
+    cluster_effects <- rep(cluster_effects, n_samples / clusters)
   } else {
     cluster_effects <- rep(0, n_samples)
   }
@@ -61,7 +76,7 @@ simcounts <- function(n_genes = 10,
   expr_mat <- matrix(0, nrow = n_genes, ncol = n_samples)
 
   # Design matrix
-  x <- rep(c(0,1), each = n_samples/2)
+  x <- rep(c(0, 1), each = n_samples / 2)
   if (!is.null(b_0)) {
     cluster <- rep(1:clusters, length = n_samples)
   }
@@ -69,53 +84,51 @@ simcounts <- function(n_genes = 10,
   # If overdispersion calculate gene-wise overdispersion parameter
   # Draw overdispersion parameter from uniform distribution
   if (!is.null(overdispersion_min_max)) {
-    overdispersion <- runif(n_genes, min = overdispersion_min_max[1],
-                            max = overdispersion_min_max[2])
+    overdispersion <- runif(
+      n_genes,
+      min = overdispersion_min_max[1],
+      max = overdispersion_min_max[2]
+    )
   }
-
-
-
-
-
 
   metadata <- data.frame(
     sample = paste0("samp", seq_len(n_samples)),
-    cluster = paste0("c",cluster),
+    cluster = paste0("c", cluster),
     x = x
   )
 
+  for (gene in seq_len(n_genes)) {
+    for (sample in seq_len(n_samples)) {
+      lambda <- exp(
+        beta_0[gene] +
+          beta_1[gene] * x[sample] +
+          cluster_effects[cluster[sample]] +
+          sample_effects[sample]
+      )
 
-    for(gene in seq_len(n_genes)) {
-      for (sample in seq_len(n_samples)) {
-        lambda <- exp(beta_0[gene] +
-                        beta_1[gene] * x[sample] +
-                        cluster_effects[cluster[sample]] +
-                        sample_effects[sample])
+      if (is.null(overdispersion_min_max)) {
+        # Poisson distribution
+        expr_mat[gene, sample] <- rpois(1, lambda)
+      } else {
+        # Negative binomial distribution
 
-        if (is.null(overdispersion_min_max)) {
-          # Poisson distribution
-          expr_mat[gene, sample] <- rpois(1, lambda)
-        } else {
-          # Negative binomial distribution
-
-          expr_mat[gene, sample] <- rnbinom(1,
-                                            size = overdispersion[gene],
-                                            mu = lambda)
-        }
-
-
-
+        expr_mat[gene, sample] <- rnbinom(
+          1,
+          size = overdispersion[gene],
+          mu = lambda
+        )
       }
     }
+  }
 
-
-
-
-  data <- data.frame(targetid = paste0("gene", seq_len(n_genes)),
-                     expr_mat)
+  data <- data.frame(targetid = paste0("gene", seq_len(n_genes)), expr_mat)
 
   colnames(data)[-1] <- metadata$sample
 
+  if (is.null(overdispersion_min_max)) {
+    # Poisson distribution
+    overdispersion <- rep(NA, n_genes)
+  }
 
   parameters <- data.frame(
     targetid = paste0("gene", seq_len(n_genes)),
@@ -124,19 +137,6 @@ simcounts <- function(n_genes = 10,
     overdispersion = overdispersion
   )
 
-
   # Return list with true parameters,  expression matrix and metadata
-  return(list(data = data,
-              parameters = parameters,
-              metadata = metadata))
-
+  return(list(data = data, parameters = parameters, metadata = metadata))
 }
-
-
-
-
-
-
-
-
-

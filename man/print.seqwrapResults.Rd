@@ -3,6 +3,10 @@
 \name{print.seqwrapResults}
 \alias{print.seqwrapResults}
 \title{Print method for objects of class seqwrapResults}
+\usage{
+## S7 method for class <seqwrap::seqwrap_results>
+print(x, ...)
+}
 \arguments{
 \item{x}{A seqwrapResults object}
 }

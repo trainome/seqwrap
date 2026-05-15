@@ -40,3 +40,24 @@ and the modelling function plus arguments to be consumed by \code{seqwrap()}.
 The seqwrap container is used to store and validate data input
 to the to seqwrap.
 }
+\examples{
+# swcontainer is the S7 class produced by seqwrap_compose(). End users
+# normally build one via seqwrap_compose() rather than calling this
+# constructor directly.
+
+library(seqwrap)
+
+dat <- simcounts(n_genes = 5)
+
+container <- seqwrap_compose(
+  modelfun = stats::lm,
+  arguments = list(formula = y ~ x),
+  data = dat$data,
+  metadata = dat$metadata,
+  samplename = "sample"
+)
+
+# The object returned by seqwrap_compose() is a swcontainer instance
+S7::S7_inherits(container, swcontainer)
+
+}

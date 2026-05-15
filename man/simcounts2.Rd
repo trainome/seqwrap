@@ -100,3 +100,28 @@ If no model is provided, values are simulated from
 a log-normal distribution based on hard coded parameter values
 from an observed mean-dispersion relationship.
 }
+\examples{
+# Simulate n_genes number of genes
+n_genes <- 1000
+
+dat <- simcounts2(
+  n1 = 5,
+  n2 = 5,
+  beta0 = rnorm(n_genes, mean = 5),
+  conditionB =rnorm(n_genes),
+  timet2 = rnorm(n_genes),
+  timet3 = rnorm(n_genes),
+  conditionB_timet2 = rnorm(n_genes),
+  conditionB_timet3 = rnorm(n_genes),
+  b0 = abs(rnorm(n_genes)),
+  b1 = abs(rnorm(n_genes)),
+  b2 = abs(rnorm(n_genes))
+)
+
+# Data are organized in counts
+dat$counts
+# .. and meta data
+dat$metadata
+
+
+}

@@ -53,3 +53,19 @@ sample-level covariates (\code{sample}, \code{cluster}, \code{x}).
 \description{
 This function is used for internal testing and tutorials.
 }
+\examples{
+# Simulate n targets from the negative binomial distribution
+dat <- simcounts(n_genes = 10,
+                 overdispersion_min_max = c(1, 5))
+
+# Simulate n targets from the Poisson distribution
+dat <- simcounts(n_genes = 10,
+                 overdispersion_min_max = NULL)
+
+
+# Data are organized in counts
+dat$data
+# .. and meta data
+dat$metadata
+
+}

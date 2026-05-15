@@ -25,5 +25,5 @@
 #' }
 #' @source \url{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE195707}
 #' @references Dungan, C. M. et al. Senolytic treatment rescues blunted
-#' muscle hypertrophy in old mice. \emph{GeroScience} 44, 1925–1940 (2022).
+#' muscle hypertrophy in old mice. \emph{GeroScience} 44, 1925\enc{–}{-}1940 (2022).
 "dungan_counts"

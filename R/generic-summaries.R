@@ -6,10 +6,34 @@
 #' @param x A model fitted in seqwrap.
 #'
 #' @returns A tidy data frame possible to bind using seqwrap_summarise
+#' @examples
+#' # The generic summary works on model objects
+#' library(seqwrap)
+#' library(glmmTMB)
+#'
+#' dat <- simcounts(n_genes = 1000,
+#'                  n_samples = 30,
+#'                  beta_0 = 5,
+#'                  overdispersion_min_max = c(1, 10))
+#'
+#' counts <- dat$data
+#' metadata <- dat$metadata
+#' metadata$ln_libsize <- log(colSums(counts[,-1]))
+#'
+#' # Save counts for gene i in the same data frame
+#' metadata$y <- as.integer(counts[1, -1])
+#'
+#' m <- glmmTMB(y ~ as.factor(x) + offset(ln_libsize),
+#'              data = metadata,
+#'              family = nbinom2)
+#'
+#' generic_summary(m)
+#' generic_evaluation(m)
+#'
 #' @export
-generic_summary <- function(x){
- out <- broom.mixed::tidy(x)
- return(out)
+generic_summary <- function(x) {
+  out <- broom.mixed::tidy(x)
+  return(out)
 }
 #' Generic evaluation for model fits
 #'
@@ -21,14 +45,39 @@ generic_summary <- function(x){
 #' @param x A model fitted in seqwrap.
 #'
 #' @returns A tidy data frame possible to combine using seqwrap_summarise
+#' @examples
+#' # The generic summary works on model objects
+#' library(seqwrap)
+#' library(glmmTMB)
+#'
+#' dat <- simcounts(n_genes = 1000,
+#'                  n_samples = 30,
+#'                  beta_0 = 5,
+#'                  overdispersion_min_max = c(1, 10))
+#'
+#' counts <- dat$data
+#' metadata <- dat$metadata
+#' metadata$ln_libsize <- log(colSums(counts[,-1]))
+#'
+#' # Save counts for gene i in the same data frame
+#' metadata$y <- as.integer(counts[1, -1])
+#'
+#' m <- glmmTMB(y ~ as.factor(x) + offset(ln_libsize),
+#'              data = metadata,
+#'              family = nbinom2)
+#'
+#' generic_summary(m)
+#' generic_evaluation(m)
+#'
 #' @export
-generic_evaluation <- function(x){
- # Simulate residuals using DHARMa
- sim_resid <- DHARMa::simulateResiduals(x, n = 250, plot = FALSE)
- # Combine potential metrics
- out <- tibble::tibble(
-   uniformity = DHARMa::testUniformity(sim_resid, plot = FALSE)$p.value,
-   dispersion = DHARMa::testDispersion(sim_resid, plot = FALSE)$p.value,
-   outliers = DHARMa::testOutliers(sim_resid, plot = FALSE)$p.value)
- return(out)
+generic_evaluation <- function(x) {
+  # Simulate residuals using DHARMa
+  sim_resid <- DHARMa::simulateResiduals(x, n = 250, plot = FALSE)
+  # Combine potential metrics
+  out <- tibble::tibble(
+    uniformity = DHARMa::testUniformity(sim_resid, plot = FALSE)$p.value,
+    dispersion = DHARMa::testDispersion(sim_resid, plot = FALSE)$p.value,
+    outliers = DHARMa::testOutliers(sim_resid, plot = FALSE)$p.value
+  )
+  return(out)
 }

@@ -61,6 +61,28 @@
 #' @importFrom stats rnorm runif rnbinom median model.matrix predict sigma
 #' @return A list of (1) simulated counts, (2) the eta, and (3) phi values used
 #' for simulating data, and (4) the meta data data frame.
+#' @examples
+#' # Simulate n_genes number of genes
+#' n_genes <- 1000
+#'
+#' dat <- simcounts2(
+#'   n1 = 5,
+#'   n2 = 5,
+#'   beta0 = rnorm(n_genes, mean = 5),
+#'   conditionB =rnorm(n_genes),
+#'   timet2 = rnorm(n_genes),
+#'   timet3 = rnorm(n_genes),
+#'   conditionB_timet2 = rnorm(n_genes),
+#'   conditionB_timet3 = rnorm(n_genes),
+#'   b0 = abs(rnorm(n_genes)),
+#'   b1 = abs(rnorm(n_genes)),
+#'   b2 = abs(rnorm(n_genes))
+#' )
+#'
+#' # Data are organized in counts
+#' dat$counts
+#' # .. and meta data
+#' dat$metadata
 #'
 #'
 #' @export

@@ -16,3 +16,28 @@ A tidy data frame possible to bind using seqwrap_summarise
 When no summary function is provided to seqwrap (summary_fun), this function
 uses broom(.mixed)::tidy to give a table of model parameter estimates.
 }
+\examples{
+# The generic summary works on model objects
+library(seqwrap)
+library(glmmTMB)
+
+dat <- simcounts(n_genes = 1000,
+                 n_samples = 30,
+                 beta_0 = 5,
+                 overdispersion_min_max = c(1, 10))
+
+counts <- dat$data
+metadata <- dat$metadata
+metadata$ln_libsize <- log(colSums(counts[,-1]))
+
+# Save counts for gene i in the same data frame
+metadata$y <- as.integer(counts[1, -1])
+
+m <- glmmTMB(y ~ as.factor(x) + offset(ln_libsize),
+             data = metadata,
+             family = nbinom2)
+
+generic_summary(m)
+generic_evaluation(m)
+
+}

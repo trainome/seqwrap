@@ -49,7 +49,6 @@ Suggests:
     ggtext,
     R.rsp
 Config/testthat/edition: 3
-RoxygenNote: 7.3.3
 Collate: 
     'seqwrap-global.R'
     'aaa-.R'
@@ -61,3 +60,4 @@ Collate:
     'simcounts.R'
     'simcounts2.R'
 VignetteBuilder: quarto, R.rsp
+Config/roxygen2/version: 8.0.0

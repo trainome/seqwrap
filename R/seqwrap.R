@@ -77,6 +77,28 @@ null_or_function <- S7::new_property(
 #'
 #' @usage NULL
 #'
+#' @examples
+#' # seqwrapResults is the S7 class returned by seqwrap(). End users do
+#' # not normally call the constructor directly -- it is invoked
+#' # internally once iterative model fitting has finished.
+#'
+#' library(seqwrap)
+#'
+#' dat <- simcounts(n_genes = 5)
+#'
+#' container <- seqwrap_compose(
+#'   modelfun = stats::lm,
+#'   arguments = list(formula = y ~ x),
+#'   data = dat$data,
+#'   metadata = dat$metadata,
+#'   samplename = "sample"
+#' )
+#'
+#' results <- seqwrap(container, subset = 1:2, cores = 1)
+#'
+#' # The object returned by seqwrap() is a seqwrapResults instance
+#' S7::S7_inherits(results, seqwrapResults)
+#'
 #' @export
 seqwrapResults <- S7::new_class(
   name = "seqwrap_results",
@@ -122,6 +144,26 @@ seqwrapResults <- S7::new_class(
 #' and the modelling function plus arguments to be consumed by `seqwrap()`.
 #'
 #' @usage NULL
+#'
+#' @examples
+#' # swcontainer is the S7 class produced by seqwrap_compose(). End users
+#' # normally build one via seqwrap_compose() rather than calling this
+#' # constructor directly.
+#'
+#' library(seqwrap)
+#'
+#' dat <- simcounts(n_genes = 5)
+#'
+#' container <- seqwrap_compose(
+#'   modelfun = stats::lm,
+#'   arguments = list(formula = y ~ x),
+#'   data = dat$data,
+#'   metadata = dat$metadata,
+#'   samplename = "sample"
+#' )
+#'
+#' # The object returned by seqwrap_compose() is a swcontainer instance
+#' S7::S7_inherits(container, swcontainer)
 #'
 #' @export
 swcontainer <- S7::new_class(
@@ -205,9 +247,9 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 
 #' Compose a swcontainer object for use in the seqwrap function.
 #'
-#' This function makes it possible to run checks on combined data sets
-#' (meta data and target data) and fitting functions to avoid issues
-#' in iterative modelling.
+#' This function makes it possible to compose and  run checks on combined
+#' data sets (meta data and target data) and fitting functions to avoid issues
+#' in iterative modelling. See examples and vignettes for details.
 #'
 #' @param x An optional named list or DGEList object (DESeqDataSet not yet
 #' implemented).
@@ -252,6 +294,113 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' should be used in model summarise or evaluations.
 #' @param update A list of named parameters to update a swcontainer object.
 #' @return A swcontainer object for direct use in seqwrap.
+#' @examples
+#' # Load packages and prepare data for examples -------------------------------
+#'
+#' library(seqwrap)
+#' library(glmmTMB)
+#'
+#' dat <- simcounts2()
+#'
+#' # Save simulated data as separate objects
+#' counts <- dat$counts
+#' metadata <- dat$metadata
+#'
+#' # Prepare library size for use as offset
+#' metadata$ln_libsize <- log(metadata$library_size)
+#'
+#'
+#' # A mixed effects negative binomial model of RNA-seq counts -----------------
+#'
+#' # Populate the seqwrap container
+#' container <- seqwrap_compose(
+#'   modelfun = glmmTMB::glmmTMB,
+#'   arguments = list(
+#'     formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+#'     family = glmmTMB::nbinom2()
+#'   ),
+#'   data = counts,
+#'   metadata = metadata,
+#'   samplename = "seq_sample_id"
+#' )
+#'
+#' # Run seqwrap using the container
+#' results <- seqwrap(container,
+#'                    cores = 1)
+#'
+#'
+#'
+#'
+#' # Summarise results
+#' summaries <- seqwrap_summarise(results)
+#'
+#'
+#' # Including target-specific data --------------------------------------------
+#'
+#' # Target specific data can be supplied to seqwrap_compose to enable, e.g.,
+#' # the use of priors for empirical Bayes shrinkage. In this example we are
+#' # setting a dummy-prior on the `condition` parameter and target-specific
+#' # prior on the dispersion parameter.
+#'
+#' fixef_priors <- data.frame(
+#'   prior = "normal(0, 1)",
+#'   class = "fixef",
+#'   coef = "conditionB"
+#' )
+#'
+#' dips_priors <- data.frame(
+#'   prior = c(
+#'     "normal(0.5, 0.25)",
+#'     "normal(1, 0.25)"),
+#'   class = "fixef_disp",
+#'   coef = 1
+#' )
+#'
+#'
+#' # Combine information in target-specific list
+#' prior_list <- list()
+#' for(i in 1:2) {
+#'
+#'   prior_list[[i]] <- rbind(
+#'     fixef_priors,
+#'     dips_priors[i,]
+#'   )
+#'
+#'
+#' }
+#'
+#'
+#'
+#' container <- seqwrap_compose(
+#'   modelfun = glmmTMB::glmmTMB,
+#'   # NOTE: The use of `alist` prevents evaluation of list components
+#'   arguments = alist(
+#'     formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+#'     family = glmmTMB::nbinom2(),
+#'     priors = data.frame(
+#'       prior = prior,
+#'       class = class,
+#'       coef = coef
+#'     )
+#'   ),
+#'   data = counts,
+#'   metadata = metadata,
+#'   targetdata = prior_list,
+#'   samplename = "seq_sample_id"
+#' )
+#'
+#' # Run seqwrap using the container
+#' results_prior <- seqwrap(container,
+#'                          # Return models to confirm use of prior information
+#'                          # The use of prior information is not recommended
+#'                          return_models = TRUE,
+#'                          cores = 1)
+#'
+#' # Confirm prior information
+#' summary(results_prior@models[[1]])
+#' # Compare to naive model
+#' summary(results@models[[1]])
+#'
 #' @export
 seqwrap_compose <- function(
   x = NULL,
@@ -590,6 +739,44 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' evaluate statistical models fitted to high dimensional omics-type data.
 #' Models are fitted and passed to user defined functions to summarize and
 #' evaluate models.
+#' @examples
+#' library(seqwrap)
+#' library(glmmTMB)
+#'
+#' # Simulate n targets
+#' dat <- simcounts(n_genes = 10000)
+#'
+#' # Save simulated data as separate objects
+#' counts <- dat$data
+#' metadata <- dat$metadata
+#'
+#' # Prepare library size for use as offset
+#' metadata$ln_libsize <- log(colSums(counts[,-1]))
+#'
+#'
+#' # A mixed effects negative binomial model of RNA-seq counts -----------------
+#'
+#' # Populate the seqwrap container
+#' container <- seqwrap_compose(
+#'   modelfun = glmmTMB::glmmTMB,
+#'   arguments = list(
+#'     formula = y ~ x + (1|cluster) + offset(ln_libsize),
+#'     family = glmmTMB::nbinom2()
+#'   ),
+#'   data = counts,
+#'   metadata = metadata,
+#'   samplename = "sample"
+#' )
+#'
+#' # Run seqwrap using the container on a subset of targets
+#' results <- seqwrap(container,
+#'                    subset = 1:5,
+#'                    cores = 1)
+#'
+#'
+#' # Summarise results only contains the subset
+#' summaries <- seqwrap_summarise(results)
+#'
 #' @export
 seqwrap <- function(
   y = NULL,
@@ -895,6 +1082,52 @@ seqwrap <- function(
 #' diagnostics from each model. Entries are omitted when the corresponding
 #' slot of `x` is empty or the user disables them via the `summaries` /
 #' `evaluations` arguments.
+#' @examples
+#' # Load packages and prepare data for examples -------------------------------
+#'
+#' library(seqwrap)
+#' library(glmmTMB)
+#'
+#' # Simulate n targets
+#' dat <- simcounts(n_genes = 10000)
+#'
+#' # Save simulated data as separate objects
+#' counts <- dat$data
+#' metadata <- dat$metadata
+#'
+#' # Prepare library size for use as offset
+#' metadata$ln_libsize <- log(colSums(counts[,-1]))
+#'
+#'
+#' # A mixed effects negative binomial model of RNA-seq counts -----------------
+#'
+#' # Populate the seqwrap container
+#' container <- seqwrap_compose(
+#'   modelfun = glmmTMB::glmmTMB,
+#'   arguments = list(
+#'     formula = y ~ x + (1|cluster) + offset(ln_libsize),
+#'     family = glmmTMB::nbinom2()
+#'   ),
+#'   data = counts,
+#'   metadata = metadata,
+#'   samplename = "sample"
+#' )
+#'
+#' # Run seqwrap using the container on a subset of targets
+#' results <- seqwrap(container,
+#'                    subset = 1:5,
+#'                    cores = 1)
+#'
+#'
+#' # Summarise results only contains the subset
+#' summaries <- seqwrap_summarise(results)
+#'
+#' # Get summaries
+#' summaries$summaries
+#'
+#' # Get model evaluations
+#' summaries$evaluations
+#'
 #'
 #' @export
 seqwrap_summarise <- function(
