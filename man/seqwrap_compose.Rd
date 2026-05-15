@@ -88,6 +88,8 @@ in iterative modelling. See examples and vignettes for details.
 # Load packages and prepare data for examples -------------------------------
 
 library(seqwrap)
+
+if (requireNamespace("glmmTMB", quietly = TRUE)) {
 library(glmmTMB)
 
 dat <- simcounts2()
@@ -190,5 +192,6 @@ results_prior <- seqwrap(container,
 summary(results_prior@models[[1]])
 # Compare to naive model
 summary(results@models[[1]])
+}
 
 }

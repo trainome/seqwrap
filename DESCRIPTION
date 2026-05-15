@@ -5,13 +5,16 @@ Version: 0.6.3
 Authors@R: c(
     person("Daniel", "Hammarstrom", 
     email = "daniel.hammarstrom@inn.no", 
-    role = c("aut", "cre"), 
+    role = c("aut", "cre", "cph"), 
     comment = c(ORCID = "0000-0001-8360-2100")), 
     person("Chidimma", "Echebiri", 
     email = "chidimma.echebiri@inn.no", 
     role = c("ctb"), 
     comment = c(ORCID = "0000-0003-3134-5186")))
-Description: Model high dimensional data using an item-by-item strategy.
+Description: Models high-dimensional data, such as RNA-seq or proteomic data
+    using an item-by-item strategy. The package contains functions to wrap
+    high-dimensional data and iterate over them using established R packages
+    for regression modelling (e.g., 'glmmTMB' or 'mgcv').
 License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

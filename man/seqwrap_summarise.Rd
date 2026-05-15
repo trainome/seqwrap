@@ -42,6 +42,8 @@ that the summary and evaluation functions return data frames.
 # Load packages and prepare data for examples -------------------------------
 
 library(seqwrap)
+
+if (requireNamespace("glmmTMB", quietly = TRUE)) {
 library(glmmTMB)
 
 # Simulate n targets
@@ -83,6 +85,7 @@ summaries$summaries
 
 # Get model evaluations
 summaries$evaluations
+}
 
 
 }

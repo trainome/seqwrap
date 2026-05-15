@@ -3,12 +3,11 @@
 \name{print.seqwrapResults}
 \alias{print.seqwrapResults}
 \title{Print method for objects of class seqwrapResults}
-\usage{
-## S7 method for class <seqwrap::seqwrap_results>
-print(x, ...)
-}
 \arguments{
 \item{x}{A seqwrapResults object}
+
+\item{...}{Currently unused; included for compatibility with the
+\code{print} generic.}
 }
 \value{
 Invisibly returns the object
@@ -18,8 +17,41 @@ Invoking the print method on seqwrapResults gives a summary
 of the fitted objects.
 }
 \examples{
-\dontrun{
-results <- seqwrap(...)
+# Load packages and prepare data for examples --------------------------------
+
+library(seqwrap)
+
+if (requireNamespace("glmmTMB", quietly = TRUE)) {
+library(glmmTMB)
+
+dat <- simcounts2()
+
+# Save simulated data as separate objects
+counts <- dat$counts
+metadata <- dat$metadata
+
+# Prepare library size for use as offset
+metadata$ln_libsize <- log(metadata$library_size)
+
+
+# A mixed effects negative binomial model of RNA-seq counts ------------------
+
+# Populate the seqwrap container
+container <- seqwrap_compose(
+  modelfun = glmmTMB::glmmTMB,
+  arguments = list(
+    formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+    family = glmmTMB::nbinom2()
+  ),
+  data = counts,
+  metadata = metadata,
+  samplename = "seq_sample_id"
+)
+
+# Run seqwrap using the container
+results <- seqwrap(container,
+                   cores = 1)
 print(results)
 }
+
 }

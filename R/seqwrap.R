@@ -200,14 +200,51 @@ swcontainer <- S7::new_class(
 #' of the fitted objects.
 #'
 #' @param x A seqwrapResults object
+#' @param ... Currently unused; included for compatibility with the
+#'   `print` generic.
 #'
 #' @return Invisibly returns the object
 #'
+#' @usage NULL
+#'
 #' @examples
-#'\dontrun{
-#' results <- seqwrap(...)
+#' # Load packages and prepare data for examples --------------------------------
+#'
+#' library(seqwrap)
+#'
+#' if (requireNamespace("glmmTMB", quietly = TRUE)) {
+#' library(glmmTMB)
+#'
+#' dat <- simcounts2()
+#'
+#' # Save simulated data as separate objects
+#' counts <- dat$counts
+#' metadata <- dat$metadata
+#'
+#' # Prepare library size for use as offset
+#' metadata$ln_libsize <- log(metadata$library_size)
+#'
+#'
+#' # A mixed effects negative binomial model of RNA-seq counts ------------------
+#'
+#' # Populate the seqwrap container
+#' container <- seqwrap_compose(
+#'   modelfun = glmmTMB::glmmTMB,
+#'   arguments = list(
+#'     formula = y ~ time * condition + (1|id) + offset(ln_libsize),
+#'     family = glmmTMB::nbinom2()
+#'   ),
+#'   data = counts,
+#'   metadata = metadata,
+#'   samplename = "seq_sample_id"
+#' )
+#'
+#' # Run seqwrap using the container
+#' results <- seqwrap(container,
+#'                    cores = 1)
 #' print(results)
-#'}
+#' }
+#'
 #' @method print seqwrapResults
 #' @name print.seqwrapResults
 S7::method(print, seqwrapResults) <- function(x, ...) {
@@ -298,6 +335,8 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' # Load packages and prepare data for examples -------------------------------
 #'
 #' library(seqwrap)
+#'
+#' if (requireNamespace("glmmTMB", quietly = TRUE)) {
 #' library(glmmTMB)
 #'
 #' dat <- simcounts2()
@@ -400,6 +439,7 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' summary(results_prior@models[[1]])
 #' # Compare to naive model
 #' summary(results@models[[1]])
+#' }
 #'
 #' @export
 seqwrap_compose <- function(
@@ -741,6 +781,8 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' evaluate models.
 #' @examples
 #' library(seqwrap)
+#'
+#' if (requireNamespace("glmmTMB", quietly = TRUE)) {
 #' library(glmmTMB)
 #'
 #' # Simulate n targets
@@ -776,6 +818,7 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #'
 #' # Summarise results only contains the subset
 #' summaries <- seqwrap_summarise(results)
+#' }
 #'
 #' @export
 seqwrap <- function(
@@ -1086,6 +1129,8 @@ seqwrap <- function(
 #' # Load packages and prepare data for examples -------------------------------
 #'
 #' library(seqwrap)
+#'
+#' if (requireNamespace("glmmTMB", quietly = TRUE)) {
 #' library(glmmTMB)
 #'
 #' # Simulate n targets
@@ -1127,6 +1172,7 @@ seqwrap <- function(
 #'
 #' # Get model evaluations
 #' summaries$evaluations
+#' }
 #'
 #'
 #' @export

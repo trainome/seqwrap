@@ -105,6 +105,8 @@ evaluate models.
 }
 \examples{
 library(seqwrap)
+
+if (requireNamespace("glmmTMB", quietly = TRUE)) {
 library(glmmTMB)
 
 # Simulate n targets
@@ -140,5 +142,6 @@ results <- seqwrap(container,
 
 # Summarise results only contains the subset
 summaries <- seqwrap_summarise(results)
+}
 
 }

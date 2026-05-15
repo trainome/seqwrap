@@ -1,0 +1,25 @@
+Third-party material redistributed in this package
+==================================================
+
+File: data/dungan_counts.rda
+Source: NCBI Gene Expression Omnibus (GEO), accession GSE195707
+        https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE195707
+Reference: Dungan, C. M., Brightwell, C. R., Wen, Y., Zdunek, C. J.,
+           Latham, C. M., Thomas, N. T., Vechetti, I. J., Jr,
+           Peck, B. D., Bamman, M. M., Murach, K. A., Englund, D. A.,
+           Fry, C. S., McCarthy, J. J., & Peterson, C. A. (2022).
+           Senolytic treatment rescues blunted muscle hypertrophy in
+           old mice. GeroScience, 44(4), 1925-1940.
+           https://doi.org/10.1007/s11357-022-00542-2
+Description: Raw RNA-seq read counts (filtered to rows with min count
+             >= 10 across samples) and sample-level metadata derived
+             from the count matrix and series matrix files deposited
+             at GEO accession GSE195707 by the authors of the
+             reference above. Data were downloaded from NCBI GEO and
+             reformatted; see data-raw/dungan_counts.R for the
+             preparation script.
+Notes: NCBI GEO data are released for unrestricted public use with
+       attribution. The dataset is redistributed here for the sole
+       purpose of providing a reproducible example for the seqwrap
+       package; users citing this dataset should cite the original
+       publication and GEO accession above.
