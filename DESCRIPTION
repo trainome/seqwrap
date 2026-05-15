@@ -3,13 +3,13 @@ Type: Package
 Title: Item-by-Item Iterative Model Fitting
 Version: 0.7.0
 Authors@R: c(
-    person("Daniel", "Hammarstrom", 
-    email = "daniel.hammarstrom@inn.no", 
-    role = c("aut", "cre", "cph"), 
-    comment = c(ORCID = "0000-0001-8360-2100")), 
-    person("Chidimma", "Echebiri", 
-    email = "chidimma.echebiri@inn.no", 
-    role = c("ctb"), 
+    person("Daniel", "Hammarstr\u00f6m",
+    email = "daniel.hammarstrom@inn.no",
+    role = c("aut", "cre", "cph"),
+    comment = c(ORCID = "0000-0001-8360-2100")),
+    person("Chidimma", "Echebiri",
+    email = "chidimma.echebiri@inn.no",
+    role = c("ctb"),
     comment = c(ORCID = "0000-0003-3134-5186")))
 Description: Models high-dimensional data, such as RNA-seq or proteomic data
     using an item-by-item strategy. The package contains functions to wrap
@@ -52,7 +52,7 @@ Suggests:
     ggtext,
     R.rsp
 Config/testthat/edition: 3
-Collate: 
+Collate:
     'seqwrap-global.R'
     'aaa-.R'
     'data-helper.R'
