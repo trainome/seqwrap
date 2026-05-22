@@ -19,3 +19,4 @@
 ^seqwrap\.Rcheck$
 ^vignettes/fitting-models-with-seqwrap\.qmd$
 ^vignettes/fitting-models-with-seqwrap_files$
+^CRAN-SUBMISSION$
