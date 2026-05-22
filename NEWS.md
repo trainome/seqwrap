@@ -1,3 +1,5 @@
+# seqwrap (development version)
+
 # seqwrap 0.7.0
 
 - Updated documentation for CRAN submission. 
