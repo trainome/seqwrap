@@ -2,24 +2,86 @@
 % Please edit documentation in R/generic-summaries.R
 \name{generic_evaluation}
 \alias{generic_evaluation}
+\alias{generic_evaluation.default}
+\alias{generic_evaluation.NULL}
+\alias{generic_evaluation.glmmTMB}
+\alias{generic_evaluation.merMod}
+\alias{generic_evaluation.negbin}
+\alias{generic_evaluation.glm}
+\alias{generic_evaluation.lm}
+\alias{generic_evaluation.lme}
+\alias{generic_evaluation.gls}
+\alias{generic_evaluation.gam}
 \title{Generic evaluation for model fits}
 \usage{
-generic_evaluation(x)
+generic_evaluation(x, ...)
+
+\method{generic_evaluation}{default}(x, ...)
+
+\method{generic_evaluation}{`NULL`}(x, ...)
+
+\method{generic_evaluation}{glmmTMB}(x, ...)
+
+\method{generic_evaluation}{merMod}(x, ...)
+
+\method{generic_evaluation}{negbin}(x, ...)
+
+\method{generic_evaluation}{glm}(x, ...)
+
+\method{generic_evaluation}{lm}(x, ...)
+
+\method{generic_evaluation}{lme}(x, ...)
+
+\method{generic_evaluation}{gls}(x, ...)
+
+\method{generic_evaluation}{gam}(x, ...)
 }
 \arguments{
-\item{x}{A model fitted in seqwrap.}
+\item{x}{A model fitted in seqwrap, or NULL when fitting failed.}
+
+\item{...}{Currently unused, present so that methods can be extended.}
 }
 \value{
-A tidy data frame possible to combine using seqwrap_summarise
+A one row tibble that can be combined using \code{seqwrap_summarise()},
+or NULL when \code{x} is NULL. The columns are:
+
+\describe{
+\item{engine}{The model class the diagnostics were read from.}
+\item{converged}{Whether the fitting algorithm reported successful
+convergence. NA when the engine reports no convergence signal.}
+\item{code}{The numeric convergence code, where the engine supplies one.
+Zero conventionally indicates success.}
+\item{message}{Any convergence message, NA when the fit was clean.}
+\item{singular}{Whether the fit is degenerate: on the boundary of the
+parameter space, rank deficient, or with a covariance matrix that is not
+positive definite.}
+\item{iterations}{Iterations or function evaluations used, where reported.}
+}
 }
 \description{
 When no evaluation function is provided to seqwrap (eval_fun), this function
-uses DHARMa to simulate residuals and test for uniformity, dispersion and
-outliers. These tests could guide troubleshooting and detection of model
-misspecification.
+collects the convergence diagnostics reported by the fitting algorithm. It is
+an S3 generic, so the diagnostics are read from whichever model object the
+engine produced. Methods are supplied for \code{glmmTMB}, \code{lme4} (\code{merMod}),
+\code{nlme} (\code{lme} and \code{gls}), \code{mgcv} (\code{gam} and \code{bam}), \code{MASS::glm.nb}
+(\code{negbin}), and the base \code{glm} and \code{lm} classes. Unrecognised model classes
+fall through to a default method.
+}
+\details{
+\code{converged} and \code{singular} are deliberately separate. A fit can satisfy the
+optimiser's convergence criterion and still be untrustworthy: \code{glmmTMB}
+regularly returns convergence code 0 alongside a non-positive-definite
+Hessian, and \code{lme4} returns code 0 for singular random effect structures.
+Screening a large set of fits therefore usually means requiring
+\code{converged & !singular} rather than \code{converged} alone.
+
+Earlier versions of this function ran DHARMa residual simulations. That is
+several orders of magnitude more expensive per target, which is prohibitive
+at the target counts this package is built for, and DHARMa is now an optional
+dependency. Use \code{residual_diagnostics()} to get the previous behaviour.
 }
 \examples{
-# The generic summary works on model objects
+# The generic evaluation works on model objects
 library(seqwrap)
 
 if (requireNamespace("glmmTMB", quietly = TRUE)) {
@@ -41,8 +103,11 @@ if (requireNamespace("glmmTMB", quietly = TRUE)) {
                data = metadata,
                family = nbinom2)
 
-  generic_summary(m)
   generic_evaluation(m)
 }
+
+# Base engines are supported as well
+fit <- stats::glm(mpg ~ wt, data = mtcars, family = stats::gaussian())
+generic_evaluation(fit)
 
 }

@@ -35,9 +35,6 @@ df_or_list <- S7::new_property(
   default = NULL # Change default to NULL
 )
 
-# Empty data frame constant to avoid codoc mismatch from deparsing data.frame()
-.empty_df <- data.frame()
-
 # Define a call property for use in the swcontainer function
 call_prop <- S7::new_property(
   validator = function(value) {
@@ -64,7 +61,13 @@ null_or_function <- S7::new_property(
 #' @param models A list of fitted model objects
 #' @param summaries A list of model summaries
 #' @param evaluations A list of model evaluations
-#' @param errors A data frame of errors and warnings. defaults to an empty dataframe
+#' @param errors A data frame of errors and warnings with one row per condition
+#' raised, holding the columns `target`, `stage`, `type`, `class` and `message`.
+#' Targets that raised nothing do not appear. Defaults to an empty data frame.
+#' @param targets A character vector of every target identifier, in the order
+#' the targets were fitted
+#' @param cache A list describing an on-disk cache of summaries and evaluations,
+#' or NULL when these are held in memory. See `seqwrap()`.
 #' @param n Number of samples
 #' @param k Number of targets
 #' @param call_arguments Character string of function arguments used
@@ -74,8 +77,6 @@ null_or_function <- S7::new_property(
 #'
 #' @return An S7 object of class `seqwrap_results` storing fitted models,
 #' summaries, evaluations, and diagnostic information from a `seqwrap()` run.
-#'
-#' @usage NULL
 #'
 #' @examples
 #' # seqwrapResults is the S7 class returned by seqwrap(). End users do
@@ -107,7 +108,12 @@ seqwrapResults <- S7::new_class(
     models = null_or_list,
     summaries = null_or_list,
     evaluations = null_or_list,
-    errors = S7::new_property(S7::class_data.frame, default = .empty_df),
+    errors = S7::new_property(
+      S7::class_data.frame,
+      default = quote(data.frame())
+    ),
+    targets = S7::new_property(S7::class_character, default = character(0)),
+    cache = null_or_list,
     n = S7::new_property(S7::class_numeric, default = integer(0)),
     k = S7::new_property(S7::class_numeric, default = integer(0)),
     call_arguments = S7::new_property(
@@ -143,8 +149,6 @@ seqwrapResults <- S7::new_class(
 #' @return An S7 object of class `swcontainer` bundling data, metadata,
 #' and the modelling function plus arguments to be consumed by `seqwrap()`.
 #'
-#' @usage NULL
-#'
 #' @examples
 #' # swcontainer is the S7 class produced by seqwrap_compose(). End users
 #' # normally build one via seqwrap_compose() rather than calling this
@@ -174,7 +178,10 @@ swcontainer <- S7::new_class(
     arguments = null_or_list,
     data = null_or_list,
     rownames = S7::new_property(S7::class_logical, default = logical(0)),
-    metadata = S7::new_property(S7::class_data.frame, default = .empty_df),
+    metadata = S7::new_property(
+      S7::class_data.frame,
+      default = quote(data.frame())
+    ),
     targetdata = df_or_list,
     samplename = S7::new_property(S7::class_character, default = character(0)),
     additional_vars = S7::new_property(
@@ -199,9 +206,11 @@ swcontainer <- S7::new_class(
 #' Invoking the print method on seqwrapResults gives a summary
 #' of the fitted objects.
 #'
-#' @param x A seqwrapResults object
-#' @param ... Currently unused; included for compatibility with the
-#'   `print` generic.
+#' @details
+#' The method is registered for the S7 class `seqwrapResults` and is called
+#' as `print(x, ...)`, where `x` is the object returned by [seqwrap()].
+#' Further arguments (`...`) are accepted for compatibility with the
+#' [print()] generic but are not used.
 #'
 #' @return Invisibly returns the object
 #'
@@ -255,30 +264,50 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
                   {.code {x@call_arguments}}"
   )
 
-  # Count non-null values in the error/warning data frame
-  errors_sum <- sapply(x@errors, function(x) sum(!sapply(x, is.null)))
+  if (!is.null(x@cache)) {
+    cli::cli_alert_info(
+      "Summaries and evaluations are cached on disk in
+      {.path {x@cache$path}} ({x@cache$n_chunks} chunk file{?s}).
+      Use {.code seqwrap_summarise()} to combine them."
+    )
+  }
 
-  if (any(errors_sum[-1] > 0)) {
+  if (NROW(x@errors) > 0L) {
     cli::cli_alert_info("Some targets had associated errors or warnings")
-
-    k <- x@k
-    cli::cli_inform(c(
-      "*" = "Fitting algorithm (errors): n = {errors_sum[2]}
-      ({round(100 * (errors_sum[2]/k))}%)",
-      "*" = "Fitting algorithm (warnings): n = {errors_sum[3]}
-      ({round(100 * (errors_sum[3]/k))}%)",
-      "*" = "Summary function (errors): n = {errors_sum[4]}
-      ({round(100 * (errors_sum[4]/k))}%)",
-      "*" = "Summary function (warnings): n = {errors_sum[5]}
-      ({round(100 * (errors_sum[5]/k))}%)",
-      "*" = "Evaluation function (errors): n = {errors_sum[6]}
-      ({round(100 * (errors_sum[6]/k))}%)",
-      "*" = "Evaluation function (warnings): n = {errors_sum[7]}
-      ({round(100 * (errors_sum[7]/k))}%)"
-    ))
+    cli::cli_inform(sw_condition_bullets(x@errors, x@k))
   } else cli::cli_alert_info("No targets had associated errors or warnings")
 
   invisible(x)
+}
+
+
+#' Format per stage condition counts for printing
+#'
+#' @param errors A long form condition table.
+#' @param k The number of targets, used for percentages.
+#' @return A named character vector of cli bullets.
+#' @keywords internal
+#' @noRd
+sw_condition_bullets <- function(errors, k) {
+  labels <- c(
+    fit = "Fitting algorithm",
+    summary = "Summary function",
+    evaluation = "Evaluation function"
+  )
+
+  bullets <- character(0)
+  for (stage in .sw_stages) {
+    for (type in .sw_types) {
+      n <- sum(errors$stage == stage & errors$type == type)
+      percent <- if (length(k) == 1L && k > 0) round(100 * n / k) else 0
+      bullets <- c(
+        bullets,
+        sprintf("%s (%ss): n = %d (%d%%)", labels[[stage]], type, n, percent)
+      )
+    }
+  }
+
+  stats::setNames(bullets, rep("*", length(bullets)))
 }
 
 
@@ -288,8 +317,9 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' data sets (meta data and target data) and fitting functions to avoid issues
 #' in iterative modelling. See examples and vignettes for details.
 #'
-#' @param x An optional named list or DGEList object (DESeqDataSet not yet
-#' implemented).
+#' @param x An optional swcontainer object to modify. When supplied, the
+#' properties named in `update` are changed and the container is returned; all
+#' other arguments are ignored.
 #' @param modelfun A model fitting function like stats::lm,
 #' glmmTMB::glmmTMB or lme4::lmer
 #' @param arguments An alist or list of arguments to be passed to the fitting
@@ -322,10 +352,13 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' formula/model/fixed/random in additional arguments.
 #' More variables may be needed for offsets, weights etc.
 #' @param summary_fun A custom (user-created) function for
-#' evaluating/summarizing models. If NULL, a list of fitted models are returned
+#' evaluating/summarizing models. If NULL, `generic_summary()` is used, which
+#' tidies model parameters with `broom.mixed::tidy()`.
 #' @param eval_fun A custom (user-created) function for model
-#' diagnostics/evaluation. If NULL, no evaluation/diagnostics of models are
-#' returned
+#' diagnostics/evaluation. If NULL, `generic_evaluation()` is used, which
+#' reports the convergence diagnostics supplied by the fitting algorithm. Pass
+#' `residual_diagnostics` for DHARMa based residual checks instead, bearing in
+#' mind that these are far more expensive per target.
 #' @param exported A list of functions, values etc. to be passed to
 #' summary_fun and eval_fun. This list must contain any functions that
 #' should be used in model summarise or evaluations.
@@ -363,8 +396,11 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #'   samplename = "seq_sample_id"
 #' )
 #'
-#' # Run seqwrap using the container
+#' # Run seqwrap using the container. Models are returned here only so that
+#' # they can be compared with the prior-based fits further down; a full run
+#' # would normally leave return_models at its default of FALSE.
 #' results <- seqwrap(container,
+#'                    return_models = TRUE,
 #'                    cores = 1)
 #'
 #'
@@ -375,6 +411,8 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #'
 #'
 #' # Including target-specific data --------------------------------------------
+#'
+#' \donttest{
 #'
 #' # Target specific data can be supplied to seqwrap_compose to enable, e.g.,
 #' # the use of priors for empirical Bayes shrinkage. In this example we are
@@ -440,6 +478,7 @@ S7::method(print, seqwrapResults) <- function(x, ...) {
 #' # Compare to naive model
 #' summary(results@models[[1]])
 #' }
+#' }
 #'
 #' @export
 seqwrap_compose <- function(
@@ -463,50 +502,20 @@ seqwrap_compose <- function(
     return(seqwrap_update(container = x, update))
   }
 
+  # Checked before any of the modelling arguments are touched, so that a
+  # DGEList reports the real problem rather than a missing argument
+  if (inherits(x, "DGEList")) {
+    cli::cli_abort(c(
+      "DGEList input is no longer accepted.",
+      "i" = "Extract the counts and sample information and pass them as
+             {.arg data} and {.arg metadata}, for example
+             {.code data = data.frame(target = rownames(dge), dge$counts)}."
+    ))
+  }
+
   # Extract the modelling algorithm for printing
   if (!is.null(modelfun)) {
     call_str <- match.call()
-  }
-
-  if (inherits(x, "DGEList")) {
-    # Prepare count data from DGEList
-
-    # If gene annotations are not available, use rownames
-    if (is.null(x$genes)) {
-      # If row names are numbers (1:nrow) add "target" for readability
-      if (identical(rownames(x), as.character(1:nrow(x$counts)))) {
-        xdata <- data.frame(
-          target = paste0("target", 1:nrow(x$counts)),
-          x$count
-        )
-        # Change name on sample names if provided
-        if (!is.null(samplename)) colnames(xdata)[1] <- samplename
-      } else {
-        xdata <- data.frame(target = rownames(x$counts), x$count)
-        # Change name on sample names if provided
-        if (!is.null(samplename)) colnames(xdata)[1] <- samplename
-      }
-    }
-    # If gene annotations are available, use these as identifiers
-    if (!is.null(x$genes)) {
-      xdata <- data.frame(target = x$genes[, 1], x$count)
-      if (!is.null(samplename)) colnames(xdata)[1] <- samplename
-    }
-
-    # Prepare metadata from DGEList
-
-    xmetadata <- data.frame(
-      samplename = rownames(x$samples),
-      x$samples,
-      row.names = NULL
-    )
-    if (!is.null(samplename)) colnames(xmetadata)[1] <- samplename
-
-    # Prepare gene-wise dispersion data
-
-    container <- swcontainer(
-      data = data_helper(data.frame(x$counts))
-    )
   }
 
   # Initialize an empty container and add objects if they exist
@@ -756,17 +765,30 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #'
 #'
 #' @inheritParams seqwrap_compose
-#' @param y, An swcontainer object created with seqwrap_compose, a named list
-#' or a DGEList object.
+#' @param y An swcontainer object created with `seqwrap_compose()`, or NULL to
+#' build one from the arguments given here.
 #' @param return_models Logical, should models be returned as part of the
-#' output? Save models during development on subsets of the data.
-#' If used on large data sets, this will result in large memory usage.
+#' output? Defaults to FALSE, as retaining every fitted model is the largest
+#' memory cost a run can incur. Set it to TRUE while developing a model on a
+#' subset of targets, where inspecting the fitted objects is useful. A warning
+#' is raised when more than ten models would be retained. To keep models from a
+#' full run without holding them in memory, use `save_models` and `model_path`.
 #' @param save_models Logical, should models be saved? Models may be saved
 #' on disk to save working memory.
 #' @param model_path A character. The path to saved models.
 #' @param subset A sequence, random samples or integers to indicate which
 #' rows to keep in data. This is useful if you want to test the model in a
 #' subset of targets. If left to the default (NULL), all rows will be used.
+#' @param chunk_size An integer giving the number of targets handed to a worker
+#' as a single unit of work. Larger chunks reduce the per-task overhead of
+#' sending data to and from workers, which matters when the number of targets is
+#' large. If NULL (default) a chunk size is chosen automatically so that each
+#' worker receives several chunks. Chunking does not change the results.
+#' @param cache One of `"none"`, `"memory"` or `"disk"`, controlling how
+#' summaries and evaluations are accumulated. See Details.
+#' @param cache_path A character path to the directory used when
+#' `cache = "disk"`. If NULL (default) a directory inside the session temporary
+#' directory is created and removed when the session ends.
 #' @param cores An integer indicating the number of cores to be used in parallel
 #'  computations. If NULL, a sequential for loop is used. If "max", all
 #'  available cores are used.
@@ -779,6 +801,39 @@ seqwrap_check <- function(x, verbose = TRUE) {
 #' evaluate statistical models fitted to high dimensional omics-type data.
 #' Models are fitted and passed to user defined functions to summarize and
 #' evaluate models.
+#'
+#' ## Caching summaries and evaluations
+#'
+#' Summary and evaluation functions return one small data frame per target.
+#' Holding these as separate objects is convenient but costs roughly ten times
+#' more memory than the same rows bound into a single data frame, because the
+#' per-data-frame overhead is paid once per target. At high target counts
+#' (hundreds of thousands, as in array-scale data) that overhead dominates. The
+#' `cache` argument controls the trade-off:
+#'
+#' * `"memory"` (default) binds summaries and evaluations into a single data
+#'   frame per slot while still on the worker, adding a `target` column. This
+#'   requires that `summary_fun` and `eval_fun` return data frames.
+#' * `"none"` keeps one data frame per target, so `@summaries` and
+#'   `@evaluations` are named lists indexed by target. Use this when a summary
+#'   or evaluation function returns something that cannot be row-bound, or when
+#'   per-target access is more convenient than filtering a combined table.
+#' * `"disk"` additionally writes each chunk's bound data frames to
+#'   `cache_path` and leaves `@summaries` and `@evaluations` empty. Parent
+#'   memory then stays flat regardless of the number of targets. Use
+#'   `seqwrap_summarise()` to read and combine the cached chunks, and
+#'   `seqwrap_cache_clear()` to remove them.
+#'
+#' `seqwrap_summarise()` returns the same combined data frames whichever mode
+#' was used, so only code reading `@summaries` or `@evaluations` directly is
+#' affected by the choice.
+#'
+#' Caching is independent of `save_models` and `model_path`, which continue to
+#' write one file per fitted model.
+#'
+#' Note that `cache = "disk"` caches summaries and evaluations only. With
+#' `return_models = TRUE` the fitted models are still collected in memory, so
+#' the two options are normally combined as `return_models = FALSE`.
 #' @examples
 #' library(seqwrap)
 #'
@@ -832,13 +887,18 @@ seqwrap <- function(
   summary_fun = NULL,
   eval_fun = NULL,
   exported = list(),
-  return_models = TRUE,
+  return_models = FALSE,
   save_models = FALSE,
   model_path = NULL,
   subset = NULL,
+  chunk_size = NULL,
+  cache = c("memory", "none", "disk"),
+  cache_path = NULL,
   cores = 1,
   verbose = TRUE
 ) {
+  cache <- match.arg(cache)
+
   # Elapsed time
   start_time <- proc.time()
 
@@ -862,25 +922,6 @@ seqwrap <- function(
     # Update the container
     if (length(updates) > 0)
       container <- seqwrap_compose(container, update = updates)
-  } else if (inherits(y, "DGEList")) {
-    # If the input is a DGEList object, compose a new container
-    container <- seqwrap_compose(x = y)
-
-    # If variables are to be updated, update the container
-    updates <- list()
-
-    if (!is.null(modelfun)) updates$modelfun <- modelfun
-    if (!is.null(arguments)) updates$arguments <- arguments
-    if (!is.null(data)) updates$data <- data
-    if (!is.null(metadata)) updates$metadata <- metadata
-    if (!is.null(samplename)) updates$samplename <- samplename
-    if (!is.null(additional_vars)) updates$additional_vars <- additional_vars
-    if (!is.null(summary_fun)) updates$summary_fun <- summary_fun
-    if (!is.null(eval_fun)) updates$eval_fun <- eval_fun
-    if (!is.null(exported)) updates$exported <- exported
-
-    # Update the container
-    container <- seqwrap_compose(container, update = updates)
   } else if (is.null(y)) {
     # If the input is NULL, compose a new container
     container <- seqwrap_compose(
@@ -894,8 +935,15 @@ seqwrap <- function(
       eval_fun = eval_fun,
       exported = exported
     )
+  } else if (inherits(y, "DGEList")) {
+    cli::cli_abort(c(
+      "DGEList input is no longer accepted.",
+      "i" = "Extract the counts and sample information and pass them as
+             {.arg data} and {.arg metadata}, for example
+             {.code data = data.frame(target = rownames(dge), dge$counts)}."
+    ))
   } else {
-    stop("The input must be a swcontainer object, a DGEList object or NULL")
+    stop("The input must be a swcontainer object or NULL")
   }
 
   # If eval_fun or summary_fun are NULL, supply generic functions
@@ -925,19 +973,58 @@ seqwrap <- function(
   # Check the container for consistency
   # seqwrap_check(container, verbose = verbose)
 
+  # Validate cache_path when cache is "disk"
+  if (cache == "disk") {
+    if (is.null(cache_path)) {
+      # CRAN policy allows packages to write to the session temporary
+      # directory only, unless the user names a location explicitly.
+      cache_path <- tempfile("seqwrap-cache-")
+    }
+    dir.create(cache_path, recursive = TRUE, showWarnings = FALSE)
+    if (!dir.exists(cache_path)) {
+      cli::cli_abort("Could not create the cache directory {.path {cache_path}}")
+    }
+  }
+
   # Get the number of targets and samples
-  k <- nrow(container@data)
+  k <- if (is.data.frame(container@data)) {
+    nrow(container@data)
+  } else {
+    nrow(container@data[[1]])
+  }
   n <- nrow(container@metadata)
 
-  # data_helper function. Combine data into a list of data frames
-  # containing variables, y in case of user-provided data frame;
-  # names of variables from list names in case of user-provided
-  # named list.
-
-  if (is.null(container@targetdata)) {
-    dfs <- data_helper(container@data)
+  # Target identifiers name every result, and are used for model file names, so
+  # a missing or blank one fails deep inside a worker with an opaque message.
+  target_ids <- if (isTRUE(container@rownames)) {
+    rownames(container@data)
+  } else if (is.data.frame(container@data)) {
+    container@data[[1]]
   } else {
-    dfs <- data_helper(container@data, container@targetdata)
+    container@data[[1]][[1]]
+  }
+  bad_ids <- is.na(target_ids) | !nzchar(trimws(as.character(target_ids)))
+  if (any(bad_ids)) {
+    # Bind each quantity to its own name: a cli string carrying two quantities
+    # and a plural marker cannot tell which one to agree with.
+    n_bad <- sum(bad_ids)
+    n_total <- length(target_ids)
+    first_rows <- utils::head(which(bad_ids), 5)
+    cli::cli_abort(c(
+      "Target identifiers must not be missing or blank.",
+      "x" = "{n_bad} of {n_total} targets have a missing or empty identifier.",
+      "i" = "Affected row{?s}: {first_rows}."
+    ))
+  }
+
+  # Retaining fitted models is the largest memory cost a run can incur, so
+  # flag it whenever more than a handful would be kept. Prototyping on a small
+  # subset, which is what return_models is meant for, stays quiet.
+  if (return_models && k > 10) {
+    cli::cli_warn(
+      "You are saving {k} model objects which could be very memory intensive.
+      If this was intended, ignore this warning."
+    )
   }
 
   # Determine the number of cores
@@ -950,6 +1037,35 @@ seqwrap <- function(
   } else {
     stop("'cores' must be NULL, a single integer, or the string \"max\"")
   }
+
+  # Build chunks of targets. Each chunk carries a slice of the raw target data
+  # and is expanded into per-target data frames on the worker, so the full
+  # per-target expansion never exists in this process.
+  if (is.null(chunk_size)) {
+    chunk_size <- sw_default_chunk_size(k, num_cores)
+  } else if (!is.numeric(chunk_size) || length(chunk_size) != 1L) {
+    stop("'chunk_size' must be NULL or a single integer")
+  } else if (chunk_size < 1) {
+    stop("'chunk_size' must be a positive integer")
+  }
+
+  # data_helper() orders targets by identifier for data frame input and by row
+  # for list input. Chunking follows that order so that a chunked run returns
+  # targets in the same sequence as an unchunked one.
+  use_rownames <- isTRUE(container@rownames)
+  target_order <- sw_target_order(container@data, rownames = use_rownames)
+  chunk_positions <- sw_chunk_index(k, chunk_size)
+
+  chunks <- lapply(seq_along(chunk_positions), function(i) {
+    pos <- chunk_positions[[i]]
+    list(
+      id = i,
+      data = sw_slice_data(container@data, target_order[pos]),
+      # Target-wise data is paired with targets by position, matching the
+      # behaviour of data_helper() on the full data set.
+      targetdata = sw_slice_targetdata(container@targetdata, pos)
+    )
+  })
 
   # Catch the function calls for printing
   funcall <- match.call()
@@ -966,6 +1082,19 @@ seqwrap <- function(
     cli::cli_inform(
       "Initiating clusters for parallel processing with {num_cores} core{?s}"
     )
+    cli::cli_inform(
+      "Fitting {k} target{?s} in {length(chunks)} chunk{?s}
+      of up to {chunk_size} target{?s}"
+    )
+    if (cache == "disk") {
+      cli::cli_inform("Caching summaries and evaluations in {.path {cache_path}}")
+      if (return_models) {
+        cli::cli_alert_warning(
+          "{.code return_models = TRUE} keeps every fitted model in memory;
+          consider {.code return_models = FALSE} when caching to disk."
+        )
+      }
+    }
   }
 
   ## Applying the model function in parallel ##
@@ -1005,15 +1134,30 @@ seqwrap <- function(
     envir = environment()
   )
 
+  # Place the contents of `exported` on the workers, not just the list itself.
+  # Summary and evaluation functions refer to these objects by name, and a
+  # function defined in the global environment loses that environment when it is
+  # sent to a worker, so the objects have to exist there independently.
+  if (length(exported) > 0) {
+    if (is.null(names(exported)) || any(!nzchar(names(exported)))) {
+      cli::cli_abort("Every element of {.arg exported} must be named.")
+    }
+    parallel::clusterExport(
+      cl,
+      varlist = names(exported),
+      envir = list2env(exported)
+    )
+  }
+
   # Parallel execution of the fitting process
   if (verbose) {
     cli::cli_inform("Merging and modelling data")
   }
 
-  results <- pbapply::pblapply(
+  chunk_results <- pbapply::pblapply(
     cl = cl,
-    X = dfs,
-    FUN = seqwrap_mtf,
+    X = chunks,
+    FUN = seqwrap_chunk,
     samp_name = samplename,
     metdat = metadata,
     arg_list = arguments,
@@ -1023,7 +1167,13 @@ seqwrap <- function(
     ffun = modelfun,
     return_mod = return_models,
     save_mods = save_models,
-    mod_path = model_path
+    mod_path = model_path,
+    reduce = cache != "none",
+    cache_path = if (cache == "disk") cache_path else NULL,
+    # Depends only on the fitting function, so resolve it once for the run
+    # rather than deparsing the fitting function for every target
+    is_lme = sw_is_lme(modelfun),
+    rownames = use_rownames
   )
 
   parallel::stopCluster(cl)
@@ -1034,26 +1184,84 @@ seqwrap <- function(
   summaries <- NULL
   evaluations <- NULL
   errors <- NULL
+  targets <- character(0)
+  cache_manifest <- NULL
 
-  # Collect models
-  if (return_models) models <- lapply(results, `[[`, "model")
+  if (cache == "none") {
+    # Flatten the chunks back into one entry per target. The result is
+    # identical to mapping over targets individually.
+    results <- unlist(
+      lapply(chunk_results, `[[`, "fits"),
+      recursive = FALSE,
+      use.names = TRUE
+    )
 
-  if (!is.null(summary_fun)) summaries <- lapply(results, `[[`, "summaries")
-  if (!is.null(eval_fun)) evaluations <- lapply(results, `[[`, "evaluation")
+    # Collect models
+    if (return_models) models <- lapply(results, `[[`, "model")
 
-  ## Create a data frame of all errors/warnings
-  errors <- tibble::tibble(
-    target = names(results),
-    errors_fit = lapply(results, `[[`, "err"),
-    warnings_fit = lapply(results, `[[`, "warn"),
-    err_sum = lapply(results, `[[`, "err_sum"),
-    warn_sum = lapply(results, `[[`, "warn_sum"),
-    err_eval = lapply(results, `[[`, "err_eval"),
-    warn_eval = lapply(results, `[[`, "warn_eval")
-  )
+    if (!is.null(summary_fun)) summaries <- lapply(results, `[[`, "summaries")
+    if (!is.null(eval_fun)) evaluations <- lapply(results, `[[`, "evaluation")
 
-  # Count non-null values in the error/warning data frame
-  errors_sum <- sapply(errors, function(x) sum(!sapply(x, is.null)))
+    # names() is NULL for an empty result set, e.g. subset = integer(0)
+    targets <- names(results)
+    if (is.null(targets)) targets <- character(0)
+
+    ## One row per error or warning actually raised
+    errors <- sw_conditions_long(results, targets)
+  } else {
+    if (return_models) {
+      models <- unlist(
+        lapply(chunk_results, `[[`, "models"),
+        recursive = FALSE,
+        use.names = TRUE
+      )
+    }
+
+    # Chunks already bound their summaries and evaluations, so only the much
+    # smaller per-chunk data frames are combined here.
+    if (cache == "memory") {
+      summaries <- sw_read_chunks(chunk_results, "summaries")
+      evaluations <- sw_read_chunks(chunk_results, "evaluations")
+    }
+
+    targets <- unlist(
+      lapply(chunk_results, `[[`, "targets"),
+      use.names = FALSE
+    )
+    if (is.null(targets)) targets <- character(0)
+
+    errors <- do.call(rbind, lapply(chunk_results, `[[`, "errors"))
+    if (is.null(errors)) errors <- sw_empty_conditions()
+
+    if (cache == "disk") {
+      cache_manifest <- list(
+        path = cache_path,
+        format = "rds",
+        n_chunks = length(chunk_results),
+        chunks = data.frame(
+          chunk = seq_along(chunk_results),
+          n = vapply(
+            chunk_results,
+            function(z) length(z$targets),
+            integer(1)
+          ),
+          summaries = vapply(
+            chunk_results,
+            `[[`,
+            character(1),
+            "file_summaries"
+          ),
+          evaluations = vapply(
+            chunk_results,
+            `[[`,
+            character(1),
+            "file_evaluations"
+          ),
+          stringsAsFactors = FALSE
+        )
+      )
+    }
+  }
 
   # Track the elapsed time
   elapsed_time <- proc.time() - start_time
@@ -1070,23 +1278,9 @@ seqwrap <- function(
       )
     })
 
-    if (any(errors_sum[-1] > 0)) {
+    if (NROW(errors) > 0L) {
       cli::cli_alert_info("Some targets had associated errors or warnings")
-
-      cli::cli_inform(c(
-        "*" = "Modeling algorithm (errors): n = {errors_sum[2]}
-      ({round(100 * (errors_sum[2]/k))}%)",
-        "*" = "Modeling algorithm (warnings): n = {errors_sum[3]}
-      ({round(100 * (errors_sum[3]/k))}%)",
-        "*" = "Summary function (errors): n = {errors_sum[4]}
-      ({round(100 * (errors_sum[4]/k))}%)",
-        "*" = "Summary function (warnings): n = {errors_sum[5]}
-      ({round(100 * (errors_sum[5]/k))}%)",
-        "*" = "Evaluation function (errors): n = {errors_sum[6]}
-      ({round(100 * (errors_sum[6]/k))}%)",
-        "*" = "Evaluation function (warnings): n = {errors_sum[7]}
-      ({round(100 * (errors_sum[7]/k))}%)"
-      ))
+      cli::cli_inform(sw_condition_bullets(errors, k))
     }
   }
 
@@ -1096,6 +1290,8 @@ seqwrap <- function(
     summaries = summaries,
     evaluations = evaluations,
     errors = errors,
+    targets = targets,
+    cache = cache_manifest,
     n = n,
     k = k,
     call_arguments = container@arguments_print,
@@ -1113,18 +1309,47 @@ seqwrap <- function(
 #' @param summaries Logical, should summaries be combined?
 #' @param evaluations Logical, should evaluations be combined?
 #' @param verbose, Logical should progress be printed? Default TRUE
-#' @param errors Logical, should errors be combined?
+#' @param errors Logical, should errors and warnings be combined? When TRUE the
+#' returned list gains an `errors` element with one row per condition raised.
+#' @param drop_warnings Should targets whose fitting, summary or evaluation
+#' raised a warning be removed from the combined results? FALSE (the default)
+#' keeps every target. TRUE removes targets that warned at any stage. A
+#' character vector selects stages, one or more of `"fit"`, `"summary"` and
+#' `"evaluation"`. See Details.
 #'
 #' @details
 #' This functions attempts to summarize results from the summary and evaluation
 #' functions applied in each iteration during modelling. The function expects
 #' that the summary and evaluation functions return data frames.
 #'
-#' @return A list (invisibly) with up to two data frames: `summaries`,
-#' combined parameter summaries from each model, and `evaluations`, combined
-#' diagnostics from each model. Entries are omitted when the corresponding
-#' slot of `x` is empty or the user disables them via the `summaries` /
-#' `evaluations` arguments.
+#' ## Targets that raised warnings
+#'
+#' `drop_warnings` defaults to FALSE, so a target that produced a warning is
+#' still reported. This is deliberate. Warnings from fitting algorithms differ
+#' widely in severity: a singular fit from `lme4` means a variance component has
+#' reached the boundary of the parameter space, which often leaves inference on
+#' the fixed effects intact, whereas a non-positive-definite Hessian from
+#' `glmmTMB` means the standard errors cannot be trusted. Treating both as
+#' grounds for removal discards usable results.
+#'
+#' Removing them silently is also a form of selection. Targets that warn are not
+#' a random subset: low count and low variance targets produce singular fits far
+#' more often than others, so dropping them biases the remaining set and changes
+#' the number of tests carried into any multiplicity correction.
+#'
+#' For a graded alternative, `generic_evaluation()` reports `converged` and
+#' `singular` per target, which can be joined onto the summaries and filtered
+#' explicitly. When `drop_warnings` is used, the identifiers of the removed
+#' targets are returned in the `dropped` element so that the choice stays
+#' visible and reversible.
+#'
+#' @return A list (invisibly) with up to four elements: `summaries`, combined
+#' parameter summaries from each model; `evaluations`, combined diagnostics from
+#' each model; `errors`, one row per error or warning with columns `target`,
+#' `stage`, `type` and `message`; and `dropped`, the identifiers of any targets
+#' removed by `drop_warnings`. Entries are omitted when the corresponding slot
+#' of `x` is empty or the user disables them via the `summaries`,
+#' `evaluations` and `errors` arguments.
 #' @examples
 #' # Load packages and prepare data for examples -------------------------------
 #'
@@ -1181,11 +1406,25 @@ seqwrap_summarise <- function(
   summaries = TRUE,
   evaluations = TRUE,
   errors = TRUE,
+  drop_warnings = FALSE,
   verbose = TRUE
 ) {
   # Check if the input is a seqwrapResults object
   if (!S7::S7_inherits(x, seqwrapResults)) {
     stop("The input must be a seqwrapResults object")
+  }
+
+  drop_stages <- sw_drop_stages(drop_warnings)
+  dropped_targets <- sw_warned_targets(x@errors, drop_stages)
+
+  # Removes the dropped targets from a combined data frame
+  apply_drop <- function(df) {
+    if (is.null(df) || length(dropped_targets) == 0L) {
+      return(df)
+    }
+    out <- df[!df[["target"]] %in% dropped_targets, , drop = FALSE]
+    rownames(out) <- NULL
+    if (nrow(out) == 0L) NULL else out
   }
 
   ## Print information from the seqwrapResults object
@@ -1229,16 +1468,16 @@ seqwrap_summarise <- function(
 
   ## Extract summarises
   if (summaries) {
-    # Check for NULL or empty list
-    if (is.null(x@summaries) || all(sapply(x@summaries, is.null))) {
+    summarised_results_final <- apply_drop(sw_collect(x, "summaries"))
+
+    if (is.null(summarised_results_final)) {
       print_summary <- function() {
         cli::cli_h1("Model summaries")
         cli::cli_alert_info("No summaries available")
       }
       if (verbose) print_summary()
     } else {
-      # Count the number of non-null elements in the list of summaries
-      n_summaries <- sum(!sapply(x@summaries, is.null))
+      n_summaries <- length(unique(summarised_results_final[["target"]]))
 
       print_summary <- function() {
         cli::cli_h1("Model summaries")
@@ -1246,43 +1485,21 @@ seqwrap_summarise <- function(
       }
 
       if (verbose) print_summary()
-
-      # Filter out NULL elements from the list of summaries
-      x@summaries <- x@summaries[!sapply(x@summaries, is.null)]
-
-      # Use Map to put names in the target column
-      temp_list_summaries <- Map(
-        function(df, df_name) {
-          df[["target"]] <- df_name
-          # Move the target column to the first column
-          df <- df[, c("target", setdiff(colnames(df), "target")), drop = FALSE]
-          # Return data frames
-          df
-        },
-        x@summaries,
-        names(x@summaries)
-      )
-
-      # Bind the list of data frames
-      summarised_results_final <- do.call(rbind, temp_list_summaries)
-      # NOW set rownames to NULL on the combined data frame
-      rownames(summarised_results_final) <- NULL
     }
   } # End if (summaries)
 
   ## Extract evaluations
   if (evaluations) {
-    # Check for NULL or empty list
-    if (is.null(x@evaluations) || all(sapply(x@evaluations, is.null))) {
+    evaluated_results_final <- apply_drop(sw_collect(x, "evaluations"))
+
+    if (is.null(evaluated_results_final)) {
       print_evaluation <- function() {
         cli::cli_h1("Model evaluations")
         cli::cli_alert_info("No evaluations available")
       }
       if (verbose) print_evaluation()
-      # evaluated_results_final remains NULL
     } else {
-      # Count the number of non-null elements in the list of evaluations
-      n_evals <- sum(!sapply(x@evaluations, is.null))
+      n_evals <- length(unique(evaluated_results_final[["target"]]))
 
       print_evaluation <- function() {
         cli::cli_h1("Model evaluations")
@@ -1290,26 +1507,6 @@ seqwrap_summarise <- function(
       }
 
       if (verbose) print_evaluation()
-
-      # Filter out NULL elements from the list of evaluations
-      x@evaluations <- x@evaluations[!sapply(x@evaluations, is.null)]
-
-      # Use Map to process each data frame in the list
-      temp_list_evaluations <- Map(
-        function(df, df_name) {
-          df[["target"]] <- df_name
-          # Move the target column to the first column
-          df <- df[, c("target", setdiff(colnames(df), "target")), drop = FALSE]
-
-          df
-        },
-        x@evaluations,
-        names(x@evaluations)
-      )
-
-      # Bind the list of data frames
-      evaluated_results_final <- do.call(rbind, temp_list_evaluations)
-      rownames(evaluated_results_final) <- NULL
     }
   } # End if (evaluations)
 
@@ -1325,7 +1522,44 @@ seqwrap_summarise <- function(
     results$evaluations <- evaluated_results_final
   }
 
-  # Add error handling results here if implemented
+  ## Extract errors and warnings, one row per condition raised
+  if (errors) {
+    condition_table <- if (NROW(x@errors) > 0L) x@errors else NULL
+
+    if (is.null(condition_table)) {
+      if (verbose) {
+        cli::cli_h1("Errors and warnings")
+        cli::cli_alert_info("No errors or warnings were raised")
+      }
+    } else {
+      results$errors <- condition_table
+
+      if (verbose) {
+        n_targets <- length(unique(condition_table$target))
+        n_errors <- sum(condition_table$type == "error")
+        n_warnings <- sum(condition_table$type == "warning")
+
+        cli::cli_h1("Errors and warnings")
+        cli::cli_li(
+          "{n_targets} target{?s} raised {n_errors} error{?s} and
+          {n_warnings} warning{?s}"
+        )
+      }
+    }
+  }
+
+  ## Record which targets were removed, so that the choice stays visible
+  if (length(dropped_targets) > 0L) {
+    results$dropped <- dropped_targets
+
+    if (verbose) {
+      cli::cli_alert_warning(
+        "Dropped {length(dropped_targets)} of {x@k} target{?s} that raised a
+        warning during {.val {drop_stages}}. Their identifiers are returned in
+        the {.field dropped} element."
+      )
+    }
+  }
 
   # Check if the final list is empty
   if (length(results) == 0) {

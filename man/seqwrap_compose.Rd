@@ -21,8 +21,9 @@ seqwrap_compose(
 )
 }
 \arguments{
-\item{x}{An optional named list or DGEList object (DESeqDataSet not yet
-implemented).}
+\item{x}{An optional swcontainer object to modify. When supplied, the
+properties named in \code{update} are changed and the container is returned; all
+other arguments are ignored.}
 
 \item{modelfun}{A model fitting function like stats::lm,
 glmmTMB::glmmTMB or lme4::lmer}
@@ -64,11 +65,14 @@ formula/model/fixed/random in additional arguments.
 More variables may be needed for offsets, weights etc.}
 
 \item{summary_fun}{A custom (user-created) function for
-evaluating/summarizing models. If NULL, a list of fitted models are returned}
+evaluating/summarizing models. If NULL, \code{generic_summary()} is used, which
+tidies model parameters with \code{broom.mixed::tidy()}.}
 
 \item{eval_fun}{A custom (user-created) function for model
-diagnostics/evaluation. If NULL, no evaluation/diagnostics of models are
-returned}
+diagnostics/evaluation. If NULL, \code{generic_evaluation()} is used, which
+reports the convergence diagnostics supplied by the fitting algorithm. Pass
+\code{residual_diagnostics} for DHARMa based residual checks instead, bearing in
+mind that these are far more expensive per target.}
 
 \item{exported}{A list of functions, values etc. to be passed to
 summary_fun and eval_fun. This list must contain any functions that
@@ -116,8 +120,11 @@ container <- seqwrap_compose(
   samplename = "seq_sample_id"
 )
 
-# Run seqwrap using the container
+# Run seqwrap using the container. Models are returned here only so that
+# they can be compared with the prior-based fits further down; a full run
+# would normally leave return_models at its default of FALSE.
 results <- seqwrap(container,
+                   return_models = TRUE,
                    cores = 1)
 
 
@@ -128,6 +135,8 @@ summaries <- seqwrap_summarise(results)
 
 
 # Including target-specific data --------------------------------------------
+
+\donttest{
 
 # Target specific data can be supplied to seqwrap_compose to enable, e.g.,
 # the use of priors for empirical Bayes shrinkage. In this example we are
@@ -192,6 +201,7 @@ results_prior <- seqwrap(container,
 summary(results_prior@models[[1]])
 # Compare to naive model
 summary(results@models[[1]])
+}
 }
 
 }

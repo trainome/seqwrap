@@ -1,0 +1,147 @@
+---
+title: "Migrating from seqwrap 0.7.0"
+author:
+  - name: Daniel Hammarström
+    email: daniel.hammarstrom@inn.no
+    affiliation:
+      - name: University of Inland Norway
+        department: Department of Public Health and Sport Sciences
+vignette: >
+  %\VignetteIndexEntry{Migrating from seqwrap 0.7.0}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Nothing in this vignette is evaluated: it exists to show the shape of the
+# changes, not to fit models.
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+This release includes changes intended to make it easier to work with larger data sets, such as full methylation arrays (~ 800 000 targets). The previous release (0.7.0) kept a lot of intermediate data in working memory making the RAM cost high. This release introduces cache mechanisms to deal with intermediate data as well as simplification of objects handled by seqwrap to reduce their sizes. 
+
+The main functionality is the same, including outputs from `seqwrap_summarise()` which includes the same combined `summaries` and `evaluations` data frames.
+
+## Changes affecting results from `seqwrap`
+
+Earlier versions of `seqwrap` drops model output from models that returns warnings. This design choice targeted, e.g., singular fits in `lme4`. However, an updated overview of errors and warnings makes it easier to examine warnings before dropping any targets before inference. This behavior makes, e.g., p-value adjustment work as intended. Only target fits that return errors are dropped as there are, in these cases, no model object to evaluate. 
+
+The consequence of this change is that **your results will contain more targets than they did before.** As noted above, this affects p-value adjustment and the number of targets available for downstream applications, such as gene-set enrichment analyses.
+
+## At a glance
+
+| Change | Affected usage | Needed fix |
+|---|---|---|
+| `return_models` defaults to FALSE | read `@models` | pass `return_models = TRUE` |
+| `cache` defaults to `"memory"` | index `@summaries` by target | filter the data frame, or pass `cache = "none"` |
+| `errors` is a long table | read `@errors$warnings_fit` | use `seqwrap_errors()` |
+| default evaluation dropped DHARMa | read `uniformity`, `dispersion` or `outliers` | pass `eval_fun = residual_diagnostics` |
+
+## 1. `return_models` now defaults to FALSE
+
+The intended usage of `return_models = TRUE` is prototyping a run. Since `TRUE` was the default saving all models was a consequence of accidentally leaving it in default. This would have resulted in a very large memory usage collecting all model objects.  
+
+```{r}
+# Before: models were returned unless you said otherwise
+results <- seqwrap(container, cores = 4)
+results@models[[1]]
+
+# Now: ask for them explicitly
+results <- seqwrap(container, return_models = TRUE, cores = 4)
+```
+
+`seqwrap()` now warns if `return_models = TRUE` and more than 10 targets are fitted. 
+
+## 2. `cache` now defaults to `"memory"`
+
+`@summaries` and `@evaluations` now hold a single data frame with a `target` column, rather than one data frame per target. This reduces the memory cost of a `seqwrap_results` object.   
+
+```{r}
+# Before: a named list, indexed by target
+results@summaries[["ENSG00000141510"]]
+
+# Now: one data frame, filtered
+subset(results@summaries, target == "ENSG00000141510")
+```
+
+If data frames of differing size, or other types of object are expected from a run then `cache = "none"` will return a named list of objects.
+
+For runs large enough that even the combined data frames are inconvenient, `cache = "disk"` writes them out in chunks and leaves the slots empty:
+
+```{r}
+results <- seqwrap(container, cache = "disk", cores = 4)
+
+# Read and combine the cached chunks
+combined <- seqwrap_summarise(results)
+
+seqwrap_cache_clear(results)
+```
+
+## 3. The `errors` slot is a long table
+
+In previous versions, the error slot (`@error`) held six list columns of condition objects, with an entry for every target whether or not anything went wrong. This was by construction a very large object. The error slot now combine data into a more compact format containing only targets with associated errors or warnings. The new format has columns `target`, `stage`, `type`, `class` and `message`. For a large run, e.g., 800,000 targets in an array where a quarter warn, the resulting error table is about 21 MB rather than > 400 MB.
+
+```{r}
+# Before
+warned <- results@errors |>
+  dplyr::filter(purrr::map_lgl(warnings_fit, ~ !is.null(.x[[1]]))) |>
+  dplyr::pull(warnings_fit)
+
+# Now
+warned <- seqwrap_errors(results, stage = "fit", type = "warning")
+
+# Which warnings dominate
+warned |>
+  dplyr::count(message, sort = TRUE)
+```
+
+IN the errors data frame, `stage` is one of `"fit"`, `"summary"` or `"evaluation"`; `type` is `"error"` or `"warning"`. Because only targets with conditions appear, the full list of targets that were fitted now lives in its own property:
+
+```{r}
+results@targets
+
+# Targets that completed cleanly
+setdiff(results@targets, seqwrap_errors(results)$target)
+```
+
+`seqwrap_summarise()` also returns this table as an `errors` element. That argument previously announced itself and returned nothing.
+
+If you want to exclude targets that warned, `seqwrap_summarise()` takes `drop_warnings`. It defaults to FALSE deliberately as  warnings differ widely cause and implications for downstream inference. When `drop_warnings = TRUE`, the identifiers of the removed targets are returned in a `dropped` element.
+
+```{r}
+combined <- seqwrap_summarise(results, drop_warnings = TRUE)
+combined$dropped
+```
+
+## 4. The default evaluation no longer uses DHARMa
+
+`generic_evaluation()` previously simulated scaled residuals with DHARMa and returned `uniformity`, `dispersion` and `outliers` p-values. Simulating residuals is expensive and was removed in this update to avoid a large cost with large data sets. We recommend that such evaluation is added on a per-need basis. The new behavior of `generic_evaluation()` is returning convergence diagnostics the from the fitting algorithm itself. We have created a S3 generic with methods for `glmmTMB`, `lme4`, `nlme`, `mgcv`,
+`MASS::glm.nb`, `glm` and `lm`. All methods return the same columns, so results remain compatible for across engines:
+
+| column | meaning |
+|---|---|
+| `engine` | the model class the diagnostics were read from |
+| `converged` | whether the optimiser reported convergence |
+| `code` | the numeric convergence code, where one is supplied |
+| `message` | any convergence message |
+| `singular` | whether the fit is degenerate |
+| `iterations` | iterations or function evaluations used |
+
+`converged` and `singular` are separate on purpose. A fit can satisfy the optimiser and still be untrustworthy: `glmmTMB` regularly returns convergence code 0 alongside a non-positive-definite Hessian, and `lme4` returns code 0 for singular random effect structures. Screening a large set of fits usually means requiring both:
+
+```{r}
+combined <- seqwrap_summarise(results)
+
+usable <- subset(combined$evaluations, converged & !singular)
+```
+
+To restore the previous behavior, pass `residual_diagnostics()` as the evaluation function. DHARMa is now an optional dependency, so it must be installed:
+
+```{r}
+results <- seqwrap(container, eval_fun = residual_diagnostics, cores = 4)
+```
+
+

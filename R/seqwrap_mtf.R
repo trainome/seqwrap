@@ -226,6 +226,11 @@ fit_fun_lme <- function(fun, arg, vars = NULL) {
 #'   results?
 #' @param save_mods Logical, should the models be saved?
 #' @param mod_path Path to save the models
+#' @param target_name The target identifier, used to name the saved model file.
+#'   Falls back to `names(x)` when not supplied.
+#' @param is_lme Logical, is `ffun` `nlme::lme`? Computed from `ffun` when not
+#'   supplied. Passed in by `seqwrap()` so it is determined once per run rather
+#'   than once per target.
 #' @param ffun the fitting function from the upper level function
 #' @return A list with the fitted model (if `return_mod = TRUE`), summary
 #'   and evaluation outputs, and any errors/warnings captured during fitting.
@@ -243,7 +248,9 @@ seqwrap_mtf <- function(
   ffun,
   return_mod,
   save_mods,
-  mod_path
+  mod_path,
+  target_name = NULL,
+  is_lme = NULL
 ) {
   # Extracting the specific target-specific data and transposing
   transposed <- data.frame(t(x[[1]]))
@@ -310,10 +317,13 @@ seqwrap_mtf <- function(
   # Create final arguments list, handling special case for lme
   arguments_final <- append(arg_list, list(data = df))
 
-  # Determine if we're using lme from nlme
-  is_lme <- identical(ffun, nlme::lme) ||
-    (is.character(ffun) && ffun == "nlme::lme") ||
-    any(grepl("lme$", deparse(ffun)))
+  # Determine if we're using lme from nlme. The answer depends only on the
+  # fitting function, which is fixed for the whole run, so seqwrap() computes it
+  # once and passes it in; deparsing the fitting function for every target is
+  # pure waste. The fallback keeps this function usable on its own.
+  if (is.null(is_lme)) {
+    is_lme <- sw_is_lme(ffun)
+  }
 
   # Handle formula environments to ensure proper evaluation
   for (i in seq_along(arguments_final)) {
@@ -359,41 +369,83 @@ seqwrap_mtf <- function(
   mod_sum <- NULL
   mod_eval <- NULL
 
-  ## Fit the model with improved error handling
-  tryCatch(
-    {
-      if (is_lme) {
-        # For lme, use a more cautious approach
-        mod <- fit_fun_lme(ffun, arguments_final, target.wise)
-      } else {
-        # For other functions, use the original approach
-        mod <- fit_fun(ffun, arguments_final, vars = target.wise)
+  ## Fit the model, recording conditions without discarding the result.
+  ##
+  ## A warning handler passed to tryCatch() unwinds the stack: the handler runs
+  ## and tryCatch() returns, so the expression never finishes. Model fitting
+  ## routinely warns while still producing a usable fit (glmmTMB on a
+  ## convergence warning, lme4 on a singular fit, glm.nb when theta hits the
+  ## iteration limit), and those fits were being thrown away. withCallingHandlers
+  ## records the warning and resumes, so only genuine errors lose the model.
+  mod <- tryCatch(
+    withCallingHandlers(
+      {
+        if (is_lme) {
+          # For lme, use a more cautious approach
+          fit_fun_lme(ffun, arguments_final, target.wise)
+        } else {
+          # For other functions, use the original approach
+          fit_fun(ffun, arguments_final, vars = target.wise)
+        }
+      },
+      warning = function(w) {
+        # Keep the first warning, matching what the previous tryCatch() saw
+        if (is.null(warn)) warn <<- w
+        invokeRestart("muffleWarning")
       }
-    },
-    warning = function(w) warn <<- w,
-    error = function(e) err <<- e
+    ),
+    error = function(e) {
+      err <<- e
+      NULL
+    }
   )
 
-  ## Do summarize function if it exists
-  if (!is.null(mt_summary_fun)) {
-    tryCatch(
-      mod_sum <- do.call("mt_summary_fun", list(mod)),
-      warning = function(w) warn_sum <<- w,
-      error = function(e) err_sum <<- e
+  ## Do summarize function if it exists. A failed fit has nothing to summarise,
+  ## and passing NULL to a summary function tends to produce a degenerate
+  ## zero-column result rather than an honest NULL.
+  if (!is.null(mt_summary_fun) && !is.null(mod)) {
+    mod_sum <- tryCatch(
+      withCallingHandlers(
+        do.call("mt_summary_fun", list(mod)),
+        warning = function(w) {
+          if (is.null(warn_sum)) warn_sum <<- w
+          invokeRestart("muffleWarning")
+        }
+      ),
+      error = function(e) {
+        err_sum <<- e
+        NULL
+      }
     )
   }
 
   ## Do evaluation function if it exists
-  if (!is.null(mt_eval_fun)) {
-    tryCatch(
-      mod_eval <- do.call("mt_eval_fun", list(mod)),
-      warning = function(w) warn_eval <<- w,
-      error = function(e) err_eval <<- e
+  if (!is.null(mt_eval_fun) && !is.null(mod)) {
+    mod_eval <- tryCatch(
+      withCallingHandlers(
+        do.call("mt_eval_fun", list(mod)),
+        warning = function(w) {
+          if (is.null(warn_eval)) warn_eval <<- w
+          invokeRestart("muffleWarning")
+        }
+      ),
+      error = function(e) {
+        err_eval <<- e
+        NULL
+      }
     )
   }
 
-  # Save the model if requested
-  if (save_mods) saveRDS(mod, file = paste0(mod_path, "/", names(x), ".rds"))
+  # Save the model if requested. The target identifier has to be passed in:
+  # lapply()/Map() hand over list elements without their names, so names(x) is
+  # NULL here and every model would otherwise be written to the same file.
+  if (save_mods) {
+    id <- if (!is.null(target_name)) target_name else names(x)
+    saveRDS(
+      mod,
+      file = file.path(mod_path, paste0(sw_safe_filename(id), ".rds"))
+    )
+  }
 
   # Return the model if requested
   if (return_mod) {

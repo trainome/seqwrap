@@ -3,6 +3,24 @@
 \name{swcontainer}
 \alias{swcontainer}
 \title{seqwrap container class}
+\usage{
+swcontainer(
+  .data = list(),
+  modelfun = NULL,
+  arguments = NULL,
+  data = NULL,
+  rownames = logical(0),
+  metadata = data.frame(),
+  targetdata = NULL,
+  samplename = character(0),
+  additional_vars = character(0),
+  summary_fun = NULL,
+  eval_fun = NULL,
+  exported = list(),
+  model_print = character(0),
+  arguments_print = character(0)
+)
+}
 \arguments{
 \item{.data}{A list containing initial data (inherited from S7::class_list)}
 

@@ -189,7 +189,7 @@ m1.1 <- seqwrap_compose(
 
 ```
 
-Next, we will run the model using `seqwrap`. We recommend using `subset` to specify a smaller number of targets when prototyping the model. Here, we will assess whether the model output matches expectations. By specifying `return_models = TRUE`, all model objects will be returned in the results object, which can be inspected if needed. Here we are using a single core for fitting the models, specified in the `cores` argument.
+Next, we will run the model using `seqwrap`. We recommend using `subset` to specify a smaller number of targets when prototyping the model. Here, we will assess whether the model output matches expectations. By specifying `return_models = TRUE`, all model objects will be returned in the results object, which can be inspected if needed. This is not the default, because retaining every fitted model is the largest memory cost a run can incur; `seqwrap` warns when more than ten models would be kept, as it does here for our 24 prototyping targets. Here we are using a single core for fitting the models, specified in the `cores` argument.
 
 ```{r}
 
@@ -207,7 +207,9 @@ Following iterative fitting using `seqwrap`, we can summarize the models using `
 
 In the `summaries` slot, model parameter values are returned (see @tbl-dungan-sum-temp). These are produced using `broom.mixed::tidy` which is a general function to retrieve model parameters from many regression model packages in R. 
 
-In the `evaluations` slot, each model is evaluated using tests from the [DHARMa package](https://CRAN.R-project.org/package=DHARMa) (see @tbl-dungan-eval-temp). 
+In the `evaluations` slot, the convergence diagnostics reported by the fitting algorithm are returned (see @tbl-dungan-eval-temp). These are read directly from the fitted model object, so the columns are the same whichever engine was used: `converged` and `code` record what the optimiser reported, `singular` flags a degenerate fit, and `message` carries any convergence message. The two flags are separate on purpose: `glmmTMB` regularly returns convergence code 0 together with a non-positive-definite Hessian, so screening a large set of fits usually means requiring `converged & !singular` rather than `converged` alone.
+
+Residual-based diagnostics are available through `residual_diagnostics()`, which simulates scaled residuals using the [DHARMa package](https://CRAN.R-project.org/package=DHARMa) and can be passed as `eval_fun`. It is roughly 400 times more expensive per target than reading convergence codes, so it is best applied to a subset of targets.
 
 ```{r}
 
@@ -239,7 +241,7 @@ m1.1_temp_sum$summaries |>
 #| message: false
 #| warning: false
 #| label: tbl-dungan-eval-temp
-#| tbl-cap: "The first ten rows from summarised preliminary models (model evaluations). Values are p-values from the DHARMa package (see [here for details](https://CRAN.R-project.org/package=DHARMa))."
+#| tbl-cap: "The first ten rows from summarised preliminary models (model evaluations). Values are convergence diagnostics read from the fitted model objects."
 
 
 m1.1_temp_sum$evaluations |> 
@@ -305,17 +307,18 @@ m1.2_results <- seqwrap(
 ```
 
 
-Errors can be inspected by accessing the errors slot. From the inspection below, warnings are at least to some extent related to model convergence.
+Errors and warnings can be inspected through the `errors` slot, which records one row per condition raised, holding the target, the stage it arose at (`fit`, `summary` or `evaluation`), whether it was an error or a warning, and the message. Targets that completed cleanly do not appear, so the table stays small even for very large runs. `seqwrap_errors()` filters it. From the inspection below, warnings are at least to some extent related to model convergence.
 
 ```{r}
 
-warnings <- m1.2_results@errors|> 
-  # filter the non-null elements
-  filter(purrr::map_lgl(warnings_fit, ~ !is.null(.x[[1]]))) |> 
-  # save in object
-  pull(warnings_fit)
+# The errors slot holds one row per condition raised, with columns
+# target, stage, type, class and message. seqwrap_errors() filters it.
+warnings <- seqwrap_errors(m1.2_results, stage = "fit", type = "warning")
 
-warnings[1]
+# Which warnings dominate, and how many targets each affects
+warnings |>
+  count(message, sort = TRUE) |>
+  slice_head(n = 3)
 
 ```
 
@@ -483,7 +486,7 @@ m1.3_sum <- seqwrap_summarise(m1.3_results, verbose = FALSE)
 
 ```
 
-Regularization increases the number models without convergence issues, in fact all `r n_genes` targets have evaluations and summaries.
+Regularization increases the number of models without convergence issues: `r nrow(seqwrap_errors(m1.3_results, stage = "fit", type = "warning"))` of `r n_genes` targets now raise a fitting warning, compared with `r nrow(seqwrap_errors(m1.2_results, stage = "fit", type = "warning"))` for the unregularized model.
 
 The summaries data frame is easily manipulated in subsequent analysis steps to, e.g., adjust p-values and create basic visualizations of the results (@fig-dungan-final-estimates).
 

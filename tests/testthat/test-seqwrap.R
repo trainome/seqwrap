@@ -144,12 +144,15 @@ test_that("Model summaries and evaluations returns expected results", {
   )
 
   ## Expected output from summary/evaluation functions
-  expect_s3_class(testsummary_glmmtmb@summaries[[1]], "tbl")
-  expect_s3_class(testsummary_glmmtmb@evaluations[[1]], "data.frame")
+  expect_s3_class(testsummary_glmmtmb@summaries, "tbl")
+  expect_s3_class(testsummary_glmmtmb@evaluations, "data.frame")
+  expect_true("target" %in% names(testsummary_glmmtmb@summaries))
 
   ## Expect no errors in the error data
-  expect_null(testsummary_glmmtmb@errors$err_sum[[1]])
-  expect_null(testsummary_glmmtmb@errors$err_eval[[1]])
+  expect_equal(
+    nrow(seqwrap_errors(testsummary_glmmtmb, type = "error")),
+    0
+  )
 
   # TODO add tests for the other model types
 })

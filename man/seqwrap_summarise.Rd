@@ -9,6 +9,7 @@ seqwrap_summarise(
   summaries = TRUE,
   evaluations = TRUE,
   errors = TRUE,
+  drop_warnings = FALSE,
   verbose = TRUE
 )
 }
@@ -19,16 +20,25 @@ seqwrap_summarise(
 
 \item{evaluations}{Logical, should evaluations be combined?}
 
-\item{errors}{Logical, should errors be combined?}
+\item{errors}{Logical, should errors and warnings be combined? When TRUE the
+returned list gains an \code{errors} element with one row per condition raised.}
+
+\item{drop_warnings}{Should targets whose fitting, summary or evaluation
+raised a warning be removed from the combined results? FALSE (the default)
+keeps every target. TRUE removes targets that warned at any stage. A
+character vector selects stages, one or more of \code{"fit"}, \code{"summary"} and
+\code{"evaluation"}. See Details.}
 
 \item{verbose, }{Logical should progress be printed? Default TRUE}
 }
 \value{
-A list (invisibly) with up to two data frames: \code{summaries},
-combined parameter summaries from each model, and \code{evaluations}, combined
-diagnostics from each model. Entries are omitted when the corresponding
-slot of \code{x} is empty or the user disables them via the \code{summaries} /
-\code{evaluations} arguments.
+A list (invisibly) with up to four elements: \code{summaries}, combined
+parameter summaries from each model; \code{evaluations}, combined diagnostics from
+each model; \code{errors}, one row per error or warning with columns \code{target},
+\code{stage}, \code{type} and \code{message}; and \code{dropped}, the identifiers of any targets
+removed by \code{drop_warnings}. Entries are omitted when the corresponding slot
+of \code{x} is empty or the user disables them via the \code{summaries},
+\code{evaluations} and \code{errors} arguments.
 }
 \description{
 Summarise seqwrapResults objects
@@ -37,6 +47,27 @@ Summarise seqwrapResults objects
 This functions attempts to summarize results from the summary and evaluation
 functions applied in each iteration during modelling. The function expects
 that the summary and evaluation functions return data frames.
+\subsection{Targets that raised warnings}{
+
+\code{drop_warnings} defaults to FALSE, so a target that produced a warning is
+still reported. This is deliberate. Warnings from fitting algorithms differ
+widely in severity: a singular fit from \code{lme4} means a variance component has
+reached the boundary of the parameter space, which often leaves inference on
+the fixed effects intact, whereas a non-positive-definite Hessian from
+\code{glmmTMB} means the standard errors cannot be trusted. Treating both as
+grounds for removal discards usable results.
+
+Removing them silently is also a form of selection. Targets that warn are not
+a random subset: low count and low variance targets produce singular fits far
+more often than others, so dropping them biases the remaining set and changes
+the number of tests carried into any multiplicity correction.
+
+For a graded alternative, \code{generic_evaluation()} reports \code{converged} and
+\code{singular} per target, which can be joined onto the summaries and filtered
+explicitly. When \code{drop_warnings} is used, the identifiers of the removed
+targets are returned in the \code{dropped} element so that the choice stays
+visible and reversible.
+}
 }
 \examples{
 # Load packages and prepare data for examples -------------------------------

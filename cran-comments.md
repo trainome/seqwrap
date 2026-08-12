@@ -1,10 +1,32 @@
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+-- R CMD check results --------------------- seqwrap 0.8.0 ----
+Duration: 3m 2.4s
 
-* This is a new release.
+0 errors v | 0 warnings v | 0 notes v
+
+Checked with `R CMD check --as-cran` on Windows 11, R 4.6.0, including the
+vignettes, the tests and the PDF manual.
 
 ## Notes for the reviewer
+
+* This is an update to a package already on CRAN (0.7.0). It has no reverse
+  dependencies.
+
+* The release changes several defaults and the layout of two slots in the
+  returned object, in order to keep memory use bounded when iterating over very
+  large target sets. The changes and the corresponding migration steps are
+  documented in `NEWS.md` and in a dedicated vignette,
+  `migrating-from-seqwrap-0-7`.
+
+* The "checking Rd contents" NOTE reported for 0.7.0 on the Debian clang and
+  gcc flavours ("Rd files without \usage": `print.seqwrapResults.Rd`,
+  `seqwrapResults.Rd`, `swcontainer.Rd`) is fixed. The two S7 class
+  constructors now document their usage, and the `print()` method no longer
+  carries an `\arguments` section.
+
+* `DHARMa` has moved from Imports to Suggests. It is now used only by
+  `residual_diagnostics()`, which is guarded by `requireNamespace()`.
 
 * There are no published references describing the methods in this
   package, so no `<doi:...>` / `<arXiv:...>` references are included
@@ -12,10 +34,12 @@
   framework for fitting user-supplied models target-by-target rather
   than implementing a specific published method.
 
-* One of the two vignettes (`fitting-models-with-seqwrap`) is shipped
+* One of the two analysis vignettes (`fitting-models-with-seqwrap`) is shipped
   pre-built via the `R.rsp::asis` engine because a fresh re-render
   fits many models in parallel and would substantially exceed the
   CRAN check time budget. The corresponding `.qmd` source is excluded
-  from the build via `.Rbuildignore`. The second vignette
-  (`fitting-lme4-nlme-models-with-seqwrap`) is built live by quarto
-  during `R CMD check`.
+  from the build via `.Rbuildignore`. The other vignettes
+  (`fitting-lme4-nlme-models-with-seqwrap` and `migrating-from-seqwrap-0-7`)
+  are built during `R CMD check`.
+
+* Examples, tests and vignettes use at most two cores.

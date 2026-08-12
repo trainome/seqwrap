@@ -3,6 +3,22 @@
 \name{seqwrapResults}
 \alias{seqwrapResults}
 \title{seqwrapResults class}
+\usage{
+seqwrapResults(
+  .data = list(),
+  models = NULL,
+  summaries = NULL,
+  evaluations = NULL,
+  errors = data.frame(),
+  targets = character(0),
+  cache = NULL,
+  n = integer(0),
+  k = integer(0),
+  call_arguments = character(0),
+  call_engine = character(0),
+  elapsed_time = numeric(0)
+)
+}
 \arguments{
 \item{.data}{A list containing initial data (inherited from S7::class_list)}
 
@@ -12,7 +28,15 @@
 
 \item{evaluations}{A list of model evaluations}
 
-\item{errors}{A data frame of errors and warnings. defaults to an empty dataframe}
+\item{errors}{A data frame of errors and warnings with one row per condition
+raised, holding the columns \code{target}, \code{stage}, \code{type}, \code{class} and \code{message}.
+Targets that raised nothing do not appear. Defaults to an empty data frame.}
+
+\item{targets}{A character vector of every target identifier, in the order
+the targets were fitted}
+
+\item{cache}{A list describing an on-disk cache of summaries and evaluations,
+or NULL when these are held in memory. See \code{seqwrap()}.}
 
 \item{n}{Number of samples}
 

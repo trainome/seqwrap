@@ -3,18 +3,18 @@
 \name{print.seqwrapResults}
 \alias{print.seqwrapResults}
 \title{Print method for objects of class seqwrapResults}
-\arguments{
-\item{x}{A seqwrapResults object}
-
-\item{...}{Currently unused; included for compatibility with the
-\code{print} generic.}
-}
 \value{
 Invisibly returns the object
 }
 \description{
 Invoking the print method on seqwrapResults gives a summary
 of the fitted objects.
+}
+\details{
+The method is registered for the S7 class \code{seqwrapResults} and is called
+as \code{print(x, ...)}, where \code{x} is the object returned by \code{\link[=seqwrap]{seqwrap()}}.
+Further arguments (\code{...}) are accepted for compatibility with the
+\code{\link[=print]{print()}} generic but are not used.
 }
 \examples{
 # Load packages and prepare data for examples --------------------------------

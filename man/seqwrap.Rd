@@ -16,17 +16,20 @@ seqwrap(
   summary_fun = NULL,
   eval_fun = NULL,
   exported = list(),
-  return_models = TRUE,
+  return_models = FALSE,
   save_models = FALSE,
   model_path = NULL,
   subset = NULL,
+  chunk_size = NULL,
+  cache = c("memory", "none", "disk"),
+  cache_path = NULL,
   cores = 1,
   verbose = TRUE
 )
 }
 \arguments{
-\item{y, }{An swcontainer object created with seqwrap_compose, a named list
-or a DGEList object.}
+\item{y}{An swcontainer object created with \code{seqwrap_compose()}, or NULL to
+build one from the arguments given here.}
 
 \item{modelfun}{A model fitting function like stats::lm,
 glmmTMB::glmmTMB or lme4::lmer}
@@ -58,19 +61,25 @@ formula/model/fixed/random in additional arguments.
 More variables may be needed for offsets, weights etc.}
 
 \item{summary_fun}{A custom (user-created) function for
-evaluating/summarizing models. If NULL, a list of fitted models are returned}
+evaluating/summarizing models. If NULL, \code{generic_summary()} is used, which
+tidies model parameters with \code{broom.mixed::tidy()}.}
 
 \item{eval_fun}{A custom (user-created) function for model
-diagnostics/evaluation. If NULL, no evaluation/diagnostics of models are
-returned}
+diagnostics/evaluation. If NULL, \code{generic_evaluation()} is used, which
+reports the convergence diagnostics supplied by the fitting algorithm. Pass
+\code{residual_diagnostics} for DHARMa based residual checks instead, bearing in
+mind that these are far more expensive per target.}
 
 \item{exported}{A list of functions, values etc. to be passed to
 summary_fun and eval_fun. This list must contain any functions that
 should be used in model summarise or evaluations.}
 
 \item{return_models}{Logical, should models be returned as part of the
-output? Save models during development on subsets of the data.
-If used on large data sets, this will result in large memory usage.}
+output? Defaults to FALSE, as retaining every fitted model is the largest
+memory cost a run can incur. Set it to TRUE while developing a model on a
+subset of targets, where inspecting the fitted objects is useful. A warning
+is raised when more than ten models would be retained. To keep models from a
+full run without holding them in memory, use \code{save_models} and \code{model_path}.}
 
 \item{save_models}{Logical, should models be saved? Models may be saved
 on disk to save working memory.}
@@ -80,6 +89,19 @@ on disk to save working memory.}
 \item{subset}{A sequence, random samples or integers to indicate which
 rows to keep in data. This is useful if you want to test the model in a
 subset of targets. If left to the default (NULL), all rows will be used.}
+
+\item{chunk_size}{An integer giving the number of targets handed to a worker
+as a single unit of work. Larger chunks reduce the per-task overhead of
+sending data to and from workers, which matters when the number of targets is
+large. If NULL (default) a chunk size is chosen automatically so that each
+worker receives several chunks. Chunking does not change the results.}
+
+\item{cache}{One of \code{"none"}, \code{"memory"} or \code{"disk"}, controlling how
+summaries and evaluations are accumulated. See Details.}
+
+\item{cache_path}{A character path to the directory used when
+\code{cache = "disk"}. If NULL (default) a directory inside the session temporary
+directory is created and removed when the session ends.}
 
 \item{cores}{An integer indicating the number of cores to be used in parallel
 computations. If NULL, a sequential for loop is used. If "max", all
@@ -102,6 +124,40 @@ This function provides a flexible wrapper to fit, summarize and
 evaluate statistical models fitted to high dimensional omics-type data.
 Models are fitted and passed to user defined functions to summarize and
 evaluate models.
+\subsection{Caching summaries and evaluations}{
+
+Summary and evaluation functions return one small data frame per target.
+Holding these as separate objects is convenient but costs roughly ten times
+more memory than the same rows bound into a single data frame, because the
+per-data-frame overhead is paid once per target. At high target counts
+(hundreds of thousands, as in array-scale data) that overhead dominates. The
+\code{cache} argument controls the trade-off:
+\itemize{
+\item \code{"memory"} (default) binds summaries and evaluations into a single data
+frame per slot while still on the worker, adding a \code{target} column. This
+requires that \code{summary_fun} and \code{eval_fun} return data frames.
+\item \code{"none"} keeps one data frame per target, so \verb{@summaries} and
+\verb{@evaluations} are named lists indexed by target. Use this when a summary
+or evaluation function returns something that cannot be row-bound, or when
+per-target access is more convenient than filtering a combined table.
+\item \code{"disk"} additionally writes each chunk's bound data frames to
+\code{cache_path} and leaves \verb{@summaries} and \verb{@evaluations} empty. Parent
+memory then stays flat regardless of the number of targets. Use
+\code{seqwrap_summarise()} to read and combine the cached chunks, and
+\code{seqwrap_cache_clear()} to remove them.
+}
+
+\code{seqwrap_summarise()} returns the same combined data frames whichever mode
+was used, so only code reading \verb{@summaries} or \verb{@evaluations} directly is
+affected by the choice.
+
+Caching is independent of \code{save_models} and \code{model_path}, which continue to
+write one file per fitted model.
+
+Note that \code{cache = "disk"} caches summaries and evaluations only. With
+\code{return_models = TRUE} the fitted models are still collected in memory, so
+the two options are normally combined as \code{return_models = FALSE}.
+}
 }
 \examples{
 library(seqwrap)
