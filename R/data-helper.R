@@ -133,6 +133,12 @@ data_helper <- function(dat, targetdat = NULL, rownames = FALSE) {
 
   # Include targetwise data if it is not null
   if(!is.null(targetdat)) {
+    # The data frame branch above groups targets with split(), which sorts
+    # them by identifier. Target-wise data is supplied by row, so it has to be
+    # reordered the same way to stay paired with its target.
+    if (inherits(dat, "data.frame")) {
+      targetdat <- sw_slice_targetdata(targetdat, order(dat[[1]]))
+    }
     # Target-wise data, common to all samples
     # Check if input is a data frame, vector, or list
     if (!is.vector(targetdat) && !is.data.frame(targetdat) && !is.list(targetdat)) {

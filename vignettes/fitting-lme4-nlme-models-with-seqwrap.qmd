@@ -83,7 +83,7 @@ swobject <- seqwrap_compose(
 ```
 
 
-The `seqwrap` function will iterate over all targets in the data and fit the model and apply the summary and evaluation function to each model. Notice that we can use `return_models = TRUE` to save model in the output. Below we also use `subset = 1:10` to only do the first 10 targets. This is useful when we want to check if teh summary and evaluation functions work as intended. The `swobject` created above is updated when we supply ne w arguments to `seqwrap`.
+The `seqwrap` function will iterate over all targets in the data and fit the model and apply the summary and evaluation function to each model. Notice that we can use `return_models = TRUE` to save model in the output. Below we also use `subset = 1:10` to only do the first 10 targets. This is useful when we want to check if the summary and evaluation functions work as intended. The `swobject` created above is updated when we supply new arguments to `seqwrap`.
 
 
 ```{r}
@@ -102,7 +102,7 @@ modelsum <- seqwrap_summarise(models)
 
 ```
 
-We have left the arguments `summary_fun` and `eval_fun` as NULL. This means that `seqwrap` will combine model parameter estimates using `broom.mixed::`/`broom::tidy`, and report the convergence diagnostics that the fitting algorithm itself supplies. The evaluation is algorithm-sensitive: `lme4` reports an optimiser code together with singularity messages, `nlme` reports whether an approximate variance-covariance matrix could be formed, and `glmmTMB` reports both an optimiser code and whether the Hessian was positive definite. These are reduced to a common set of columns so that they can be combined across targets. These evaluations are thought of as minimal summaries of the model and might not completly satisfy the needs of the user. From our example above, the fitted parameters from the models are returned in `modelsum$summaries` and model evaluations are returned in `modelsum$evaluations`.
+We have left the arguments `summary_fun` and `eval_fun` as NULL. This means that `seqwrap` will combine model parameter estimates using `broom.mixed::`/`broom::tidy`, and report the convergence diagnostics that the fitting algorithm itself supplies. The evaluation is algorithm-sensitive: `lme4` reports an optimiser code together with singularity messages, `nlme` reports whether an approximate variance-covariance matrix could be formed, and `glmmTMB` reports both an optimiser code and whether the Hessian was positive definite. These are reduced to a common set of columns so that they can be combined across targets. These evaluations are thought of as minimal summaries of the model and might not completely satisfy the needs of the user. From our example above, the fitted parameters from the models are returned in `modelsum$summaries` and model evaluations are returned in `modelsum$evaluations`.
 
 The functions are exported from the seqwrap package and we can inspect them:
 

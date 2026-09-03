@@ -1,3 +1,48 @@
+# seqwrap 0.8.1
+
+## New features
+- New `seqwrap_priors()` builds empirical Bayes priors for `glmmTMB` from a
+  completed run. Fixed-effect estimates are summarised across targets into
+  `normal()` priors (centered on zero by default, or on the mean across
+  targets), random-effect standard deviations into a `gamma()` prior, and the
+  log dispersion is modelled as a loess trend against log mean count so that
+  each target receives its own dispersion prior. The result is a list with one
+  prior data frame per target, ready to be passed as `targetdata` to
+  `seqwrap_compose()`, and prints a summary of the priors it holds. This
+  replaces the manual construction shown in earlier versions of the vignette.
+  A `plot()` method, also reachable through `seqwrap_priors(plot = TRUE)`,
+  draws each prior over the estimates it was built from: histograms with the
+  prior density for fixed effects and random-effect standard deviations, and
+  the log dispersion against log mean count with the fitted trend. The
+  per-target estimates behind the panels are kept in the `data` attribute of
+  the object so that other displays can be built from them.
+- New `dispersion_evaluation()` is an evaluation function for `glmmTMB` models
+  that records the log dispersion, its standard error and the log mean count of
+  each target, which is what `seqwrap_priors()` needs to build the dispersion
+  prior.
+
+- A list passed as `targetdata` can now be named by target identifier, in
+  which case elements are matched to targets by name regardless of order, and
+  the list may hold more targets than `data` (for example priors built from a
+  full run applied to a subset). `seqwrap_priors()` returns such a list. An
+  unnamed list is still matched by position, as before, but `seqwrap()` now
+  warns that it does so, since a misordered list is otherwise silent. A named
+  list that lacks a target is rejected with a message naming the missing
+  targets.
+
+## Improvements and bug fixes
+- `seqwrap()` now reports, in its verbose header, how many times the progress
+  bar will advance and in what step size. The bar moves once per batch of
+  chunks (one chunk per core), so with the default chunk size it advances in
+  about four steps; the message points to `chunk_size` for finer updates.
+- Target-wise data (`targetdata`) was paired with the wrong targets when the
+  target identifiers in `data` were not in sorted order. Targets are grouped by
+  sorted identifier internally, while target-wise data was taken by row, so row
+  `j` of `targetdata` ended up with the `j`-th target in sorted order rather
+  than with row `j` of `data`. Target-wise data now follows the same
+  reordering as the data, for data frames and lists, with and without chunking
+  or `subset`.
+
 # seqwrap 0.8.0
 
 ## Improvements and bug fixes
@@ -58,7 +103,7 @@
   returned in a `dropped` element and the count is reported, so the choice is
   visible and reversible. Note that targets which warn are do so because of 
   different mechanisms. The `@errors` slot contain error and warning codes from 
-  the spoecific fitting algorithm.
+  the specific fitting algorithm.
 - `seqwrap_summarise(errors = TRUE)` now returns the errors it announced. The
   argument previously printed "Attempting to summarise errors and warnings" and
   returned nothing. The new `errors` element holds one row per condition raised,

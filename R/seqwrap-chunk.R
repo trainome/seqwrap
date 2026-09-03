@@ -725,3 +725,103 @@ seqwrap_cache_clear <- function(x, recursive = TRUE) {
 
   invisible(removed)
 }
+
+
+#' Target identifiers of a data slot, in row order
+#'
+#' @param data A data frame, or a named list of data frames.
+#' @param rownames Logical, are row names used as target identifiers?
+#' @return A character vector.
+#' @keywords internal
+#' @noRd
+sw_target_ids <- function(data, rownames = FALSE) {
+  ids <- if (isTRUE(rownames)) {
+    if (is.data.frame(data)) rownames(data) else rownames(data[[1]])
+  } else if (is.data.frame(data)) {
+    data[[1]]
+  } else {
+    data[[1]][[1]]
+  }
+  as.character(ids)
+}
+
+
+#' Align target-wise data with the targets in the data
+#'
+#' A data frame or an unnamed list is paired with targets by position, element
+#' `i` belonging to row `i` of the data. A list named by target identifier is
+#' paired by name, which also allows it to hold more targets than the data,
+#' as when priors built from a full run are applied to a subset.
+#'
+#' @param targetdata A data frame, a list, or NULL.
+#' @param target_ids Target identifiers in data row order.
+#' @param warn Logical, warn when an unnamed list is matched by position?
+#' @return `targetdata` reordered to `target_ids` when matched by name,
+#'   otherwise unchanged.
+#' @keywords internal
+#' @noRd
+sw_align_targetdata <- function(targetdata, target_ids, warn = TRUE) {
+  if (is.null(targetdata) || is.data.frame(targetdata)) {
+    return(targetdata)
+  }
+
+  nms <- names(targetdata)
+  unnamed <- sw_is_unnamed(targetdata)
+
+  if (unnamed) {
+    if (length(targetdata) != length(target_ids)) {
+      cli::cli_abort(
+        "{.arg targetdata} must have the same number of elements
+         ({length(targetdata)}) as {.arg data} has rows ({length(target_ids)})."
+      )
+    }
+    if (warn) {
+      cli::cli_warn(c(
+        "{.arg targetdata} is an unnamed list and is matched to targets by
+         position.",
+        "i" = "Make sure that element {.code i} of the list belongs to row
+               {.code i} of {.arg data}, or name the elements by target
+               identifier to match them by name."
+      ))
+    }
+    return(targetdata)
+  }
+
+  if (any(is.na(nms) | !nzchar(nms))) {
+    cli::cli_abort(
+      "Either every element of {.arg targetdata} must be named by target
+       identifier, or none of them."
+    )
+  }
+  if (anyDuplicated(nms)) {
+    dups <- unique(nms[duplicated(nms)])
+    cli::cli_abort(c(
+      "Element names of {.arg targetdata} must be unique.",
+      "x" = "Duplicated: {.val {utils::head(dups, 5)}}."
+    ))
+  }
+
+  missing <- setdiff(target_ids, nms)
+  if (length(missing) > 0L) {
+    n_missing <- length(missing)
+    cli::cli_abort(c(
+      "{.arg targetdata} is matched to targets by name, but {n_missing}
+       target{?s} in {.arg data} {?has/have} no element.",
+      "x" = "Missing: {.val {utils::head(missing, 5)}}."
+    ))
+  }
+
+  targetdata[match(target_ids, nms)]
+}
+
+
+#' Does a list carry no usable names?
+#'
+#' @param x A list.
+#' @return TRUE when `x` has no names, or only empty ones.
+#' @keywords internal
+#' @noRd
+sw_is_unnamed <- function(x) {
+  nms <- names(x)
+  is.null(nms) || all(is.na(nms) | !nzchar(nms))
+}

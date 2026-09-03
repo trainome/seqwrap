@@ -18,7 +18,7 @@ read counts, named by experimental id.}
 \describe{
 \item{seq_sample_id}{Experimental unit id (mouse identifier)}
 \item{treatment}{Senolytic or control (Vehicle) treatment}
-\item{surgery}{Surgery inducing overload (synergist ablation) or sham surgury}
+\item{surgery}{Surgery inducing overload (synergist ablation) or sham surgery}
 }
 }
 }

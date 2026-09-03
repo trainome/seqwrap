@@ -1,7 +1,7 @@
 Package: seqwrap
 Type: Package
 Title: Item-by-Item Iterative Model Fitting
-Version: 0.8.0
+Version: 0.8.1
 Authors@R: c(
     person("Daniel", "Hammarstr\u00f6m",
     email = "daniel.hammarstrom@inn.no",
@@ -31,6 +31,8 @@ Imports:
     pbapply,
     parallel,
     stats,
+    graphics,
+    grDevices,
     broom.mixed
 Suggests:
     testthat (>= 3.0.0),
@@ -60,6 +62,7 @@ Collate:
     'data.R'
     'generic-summaries.R'
     'seqwrap-chunk.R'
+    'seqwrap-priors.R'
     'seqwrap.R'
     'seqwrap_mtf.R'
     'simcounts.R'

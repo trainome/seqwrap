@@ -341,8 +341,14 @@ sw_condition_bullets <- function(errors, k) {
 #' (e.g. dispersion or start values) for each target. This data is made
 #' available for the model fitting function and can be used to specify target
 #' specific data in each iteration of seqwrap. When a data frame is provided
-#' each row corresponds to the target specific value. When a list is provided,
-#' each column of the data frame is available and can be called by name.
+#' each row corresponds to the target specific value and each column is
+#' available by name. When a list is provided, each element is a data frame
+#' whose columns are available by name. A list whose elements are named by
+#' target identifier is matched to targets by name and may hold more targets
+#' than `data`. A data frame, or a list without names, is matched by position,
+#' row or element `i` belonging to row `i` of `data`; `seqwrap()` warns when a
+#' list is matched this way. See `seqwrap_priors()` for building
+#' target-specific priors for `glmmTMB`.
 #' @param samplename A character value indicating the variable by which
 #' metadata can merge with the target data. This defaults to "seq_sample_id"
 #' as this is used in the trainomeMetaData package.
@@ -434,11 +440,11 @@ sw_condition_bullets <- function(errors, k) {
 #' )
 #'
 #'
-#' # Combine information in target-specific list
+#' # Combine information in a target-specific list, named by target
 #' prior_list <- list()
 #' for(i in 1:2) {
 #'
-#'   prior_list[[i]] <- rbind(
+#'   prior_list[[counts[i, 1]]] <- rbind(
 #'     fixef_priors,
 #'     dips_priors[i,]
 #'   )
@@ -537,22 +543,7 @@ seqwrap_compose <- function(
   if (!is.null(eval_fun)) container@eval_fun <- eval_fun
   if (!is.null(exported)) container@exported <- exported
 
-  # Validate targetdata
-  if (!is.null(container@data) && !is.null(container@targetdata)) {
-    n_data_rows <- nrow(container@data)
-    n_target_rows <- if (is.data.frame(container@targetdata)) {
-      nrow(container@targetdata)
-    } else if (is.list(container@targetdata)) {
-      length(container@targetdata)
-    }
-
-    if (n_data_rows != n_target_rows) {
-      cli::cli_abort(
-        "targetdata must have the same number of rows/elements ({n_target_rows})
-      as data has rows ({n_data_rows})"
-      )
-    }
-  }
+  sw_validate_targetdata(container)
 
   # Return the populated container
   return(container)
@@ -589,7 +580,46 @@ S7::method(seqwrap_update, swcontainer) <- function(
   # Update the container object
   S7::props(container) <- update
 
+  # Updated data or target-wise data have to agree, as in a fresh container
+  if (any(c("data", "targetdata", "rownames") %in% name)) {
+    sw_validate_targetdata(container)
+  }
+
   return(container)
+}
+
+
+#' Check that target-wise data agrees with the data
+#'
+#' A data frame or an unnamed list is paired by position and must have one
+#' entry per target; a list named by target identifier is paired by name and
+#' must cover every target. Nothing is done when either slot is empty.
+#'
+#' @param container A swcontainer object.
+#' @return TRUE (invisibly), or an error.
+#' @keywords internal
+#' @noRd
+sw_validate_targetdata <- function(container) {
+  if (is.null(container@data) || is.null(container@targetdata)) {
+    return(invisible(TRUE))
+  }
+
+  target_ids <- sw_target_ids(container@data, isTRUE(container@rownames))
+  n_data_rows <- length(target_ids)
+
+  if (is.data.frame(container@targetdata)) {
+    n_target_rows <- nrow(container@targetdata)
+    if (n_data_rows != n_target_rows) {
+      cli::cli_abort(
+        "targetdata must have the same number of rows ({n_target_rows})
+        as data has rows ({n_data_rows})"
+      )
+    }
+  } else {
+    sw_align_targetdata(container@targetdata, target_ids, warn = FALSE)
+  }
+
+  invisible(TRUE)
 }
 
 
@@ -955,11 +985,12 @@ seqwrap <- function(
     # Subset the data
     container@data <- container@data[subset, , drop = FALSE]
 
-    # Subset the targetdata if it is not NULL
+    # Subset the targetdata if it is not NULL. A list named by target
+    # identifier is aligned by name below, after the data has been subset.
     if (!is.null(container@targetdata)) {
       if (is.data.frame(container@targetdata)) {
         container@targetdata <- container@targetdata[subset, , drop = FALSE]
-      } else if (is.list(container@targetdata)) {
+      } else if (sw_is_unnamed(container@targetdata)) {
         container@targetdata <- container@targetdata[subset]
       }
     }
@@ -1017,6 +1048,13 @@ seqwrap <- function(
     ))
   }
 
+  # Pair target-wise data with targets: by name when the list is named by
+  # target identifier, otherwise by position with a warning
+  container@targetdata <- sw_align_targetdata(
+    container@targetdata,
+    as.character(target_ids)
+  )
+
   # Retaining fitted models is the largest memory cost a run can incur, so
   # flag it whenever more than a handful would be kept. Prototyping on a small
   # subset, which is what return_models is meant for, stays quiet.
@@ -1061,9 +1099,9 @@ seqwrap <- function(
     list(
       id = i,
       data = sw_slice_data(container@data, target_order[pos]),
-      # Target-wise data is paired with targets by position, matching the
-      # behaviour of data_helper() on the full data set.
-      targetdata = sw_slice_targetdata(container@targetdata, pos)
+      # Target-wise data is paired with targets by their row in the data, so it
+      # follows the same reordering as the data itself.
+      targetdata = sw_slice_targetdata(container@targetdata, target_order[pos])
     )
   })
 
@@ -1085,6 +1123,16 @@ seqwrap <- function(
     cli::cli_inform(
       "Fitting {k} target{?s} in {length(chunks)} chunk{?s}
       of up to {chunk_size} target{?s}"
+    )
+    # The progress bar advances once per batch of chunks, one chunk per core,
+    # because workers cannot report progress from inside a chunk. Say so, since
+    # a bar that moves in a few large steps otherwise looks stalled.
+    n_updates <- max(1L, ceiling(length(chunks) / max(1L, num_cores)))
+    cli::cli_inform(
+      "The progress bar updates {n_updates} time{?s}
+      (once per {num_cores} chunk{?s} completed), in steps of about
+      {round(100 / n_updates)}%; use a smaller {.arg chunk_size}
+      for more frequent updates"
     )
     if (cache == "disk") {
       cli::cli_inform("Caching summaries and evaluations in {.path {cache_path}}")

@@ -51,8 +51,14 @@ and design variables.}
 (e.g. dispersion or start values) for each target. This data is made
 available for the model fitting function and can be used to specify target
 specific data in each iteration of seqwrap. When a data frame is provided
-each row corresponds to the target specific value. When a list is provided,
-each column of the data frame is available and can be called by name.}
+each row corresponds to the target specific value and each column is
+available by name. When a list is provided, each element is a data frame
+whose columns are available by name. A list whose elements are named by
+target identifier is matched to targets by name and may hold more targets
+than \code{data}. A data frame, or a list without names, is matched by position,
+row or element \code{i} belonging to row \code{i} of \code{data}; \code{seqwrap()} warns when a
+list is matched this way. See \code{seqwrap_priors()} for building
+target-specific priors for \code{glmmTMB}.}
 
 \item{samplename}{A character value indicating the variable by which
 metadata can merge with the target data. This defaults to "seq_sample_id"
@@ -158,11 +164,11 @@ dips_priors <- data.frame(
 )
 
 
-# Combine information in target-specific list
+# Combine information in a target-specific list, named by target
 prior_list <- list()
 for(i in 1:2) {
 
-  prior_list[[i]] <- rbind(
+  prior_list[[counts[i, 1]]] <- rbind(
     fixef_priors,
     dips_priors[i,]
   )

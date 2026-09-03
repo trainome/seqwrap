@@ -18,8 +18,8 @@ editor_options:
   chunk_output_type: console
 vignette: >
   %\VignetteIndexEntry{Fitting models with seqwrap}
-  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
 ---
 
 ```{r}
@@ -196,7 +196,7 @@ Next, we will run the model using `seqwrap`. We recommend using `subset` to spec
 m1.1_temp <- seqwrap(
   m1.1, 
   cores = 1, 
-  subset = 1:24, 
+  subset = 1:10, 
   return_models = TRUE, 
   verbose = FALSE
 )
@@ -254,31 +254,13 @@ m1.1_temp_sum$evaluations |>
 
 ### Specifying summary and evaluation function
 
-We can specify custom functions for evaluating the model object. `seqwrap` allows for two slots (summaries and evaluations). Each function should take the model object as an argument, and for compatibility with `seqwrap_summarise`, return a data frame. For our next step, we would like to retrieve the dispersion parameter from each model. We will place this parameter in the evaluation function. We can extract the dispersion parameter on the log scale from the `glmmTMB` model object. We will construct a function around the extraction and include the observed counts from the data:
-
-
-```{r}
-
-dispersion_fun <- function(x) {
-  
-    out <- data.frame(
-      dispersion =  data.frame(summary(x$sdr))["betadisp",1],
-      dispersion.se = data.frame(summary(x$sdr))["betadisp",2],
-      log_mu = log(mean(x$frame$y))
-      )
-  
-    return(out)
-  
-}
-```
-
-Using our preliminary models, we can validate the function for one model.
+We can specify custom functions for evaluating the model object. `seqwrap` allows for two slots (summaries and evaluations). Each function should take the model object as an argument, and for compatibility with `seqwrap_summarise`, return a data frame. However, for our next step, we would like to retrieve the dispersion parameter from each model. `seqwrap` provides `dispersion_evaluation()` for this purpose: it reads the dispersion parameter on the log scale from a `glmmTMB` model object, together with its standard error and the log of the mean observed counts. We will place this function in the evaluation slot. Using our preliminary models, we can validate the function for one model.
 
 ```{r}
-dispersion_fun(m1.1_temp@models[[1]])
+dispersion_evaluation(m1.1_temp@models[[1]])
 ```
 
-The output is, as expected, a data frame with three columns. The dispersion parameter is expected to be on the log scale. To validate this we can directly access the estimated dispersion parameter from the model object using `sigma()`, which return the dispersion parameter on the natural scale. 
+The output is a data frame with three columns. The dispersion parameter is expected to be on the log scale. To validate this we can directly access the estimated dispersion parameter from the model object using `sigma()`, which return the dispersion parameter on the natural scale (see `?sigma.glmmTMB` for details). 
 
 ```{r}
 log(sigma(m1.1_temp@models[[1]]))
@@ -297,7 +279,7 @@ We should expect some errors from modelling many thousands of targets. As seen i
 
 m1.2_results <- seqwrap(
   m1.1,
-  eval_fun = dispersion_fun,
+  eval_fun = dispersion_evaluation,
   cores = n_cores,
   return_models = FALSE,
   verbose = FALSE
@@ -310,6 +292,7 @@ m1.2_results <- seqwrap(
 Errors and warnings can be inspected through the `errors` slot, which records one row per condition raised, holding the target, the stage it arose at (`fit`, `summary` or `evaluation`), whether it was an error or a warning, and the message. Targets that completed cleanly do not appear, so the table stays small even for very large runs. `seqwrap_errors()` filters it. From the inspection below, warnings are at least to some extent related to model convergence.
 
 ```{r}
+
 
 # The errors slot holds one row per condition raised, with columns
 # target, stage, type, class and message. seqwrap_errors() filters it.
@@ -375,67 +358,32 @@ plot_grid(
 ```
 
 
-Except for the dispersion values, we can easily summarize parameter values by their mean and standard deviation. A more elaborate summary of the dispersion values could include an estimate of the mean (log) dispersion, conditional on the average log counts. As the dispersion prior will be slightly different for each target (based on the observed counts), we will combine priors into target-specific data frames and store them as a list. `seqwrap` will make target-specific list elements available in each iteration, making it possible to build the prior data frame for `glmmTMB`.
+Except for the dispersion values, we can easily summarize parameter values by their mean and standard deviation. A more elaborate summary of the dispersion values could include an estimate of the mean (log) dispersion, conditional on the average log counts. As the dispersion prior will be slightly different for each target (based on the observed counts), priors have to be combined into target-specific data frames and stored in a list. `seqwrap` will make target-specific list elements available in each iteration, making it possible to build the prior data frame for `glmmTMB`.
+
+`seqwrap_priors()` does this work. Given the results from the first run and the count data, it summarises the fixed-effect estimates across targets into normal priors, centered on zero by default so that estimates are shrunk towards no effect, fits a loess trend of the log dispersion against the log mean count, and gives every target a normal prior for the dispersion centered on the trend at its own mean count. Random-effect standard deviations, when the model has any, receive a gamma prior. The result is a list with one prior data frame per target, in the order of the rows in `counts`, which prints a summary of the priors it holds.
 
 ```{r}
 
-# Summarise parameters from the main output
-param_sum <- m1.2_sum$summaries |> 
-  summarise(.by = term, 
-            m = mean(estimate), 
-            s = sd(estimate)) 
+Priors_list <- seqwrap_priors(m1.2_results, data = counts)
 
-# Fit a model to the log dispersion values
-trend_model <- loess(dispersion ~ log_mu,
-                         data = m1.2_sum$evaluations,
-                         span = 0.7)
-
-
-# Predict dispersion for each gene based on log raw counts
-# and combine into a prior.
-dispersion_prior <- data.frame(gene =  counts[,1],
-                               pred = round(
-                                 predict(trend_model,
-                                         newdata = data.frame(
-                                           log_mu =  log(rowMeans(counts[,-1]))
-                                           )
-                                   ), 3),
-                                 s = round(
-                                   trend_model$s, 3)
-  ) |>
-    mutate(prior = paste0("normal(", pred, ",", s, ")"))
-
-# Combine parameters in a data frame...
-Priors_df <- data.frame(prior = paste0("normal(",
-                                       round(param_sum$m, 2),
-                                       ",",
-                                       round(param_sum$s,2 ), 
-                                       ")"),
-                        class = rep("fixef", 4),
-                        coef = param_sum$term)
-
-
-# ... extract a prediction for the mean dispersion parameter per target
-# and combine with other parameters  
-Priors_list <- list()
-for( j in 1:nrow( counts )) {
-
-
-    df <- bind_rows(Priors_df,
-                    data.frame(
-                      prior =
-                        dispersion_prior[dispersion_prior$gene ==
-                                           counts[j,1],4],
-                      class = "fixef_disp",
-                      coef = "1"
-                    )
-    )
-
-    Priors_list[[j]] <- df
-
-}
+# The priors built for the first target
+Priors_list[[1]]
 
 ```
+
+Plotting the object draws each prior over the estimates it summarises, which is a quick check that the priors are sensible. The same panels can be requested while building the priors with `plot = TRUE`.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 3.2
+
+plot(Priors_list)
+
+```
+
+The location and scale used for each shared prior, the per-target dispersion priors, and the fitted loess trend are kept as attributes (`common`, `dispersion` and `trend`) for inspection, and the per-target estimates the panels are drawn from are kept in the `data` attribute for displays of your own (`attr(Priors_list, "data")`). Priors can be centered on the mean estimate across targets instead (`center = "mean"`), restricted to selected terms (`terms`), made robust to targets whose fits went astray (`robust = TRUE`), or built without a dispersion trend (`trend = "constant"`). Importantly, we urge the user to evaluate these choices through simulations to guide informed decisions.  
+
+The list is named by target identifier, so `seqwrap` matches each element to its target by name. A list built by hand can be used in the same way: name its elements by target identifier, or leave it unnamed to match by position, in which case `seqwrap` warns that element *i* is taken to belong to row *i* of the data.
 
 
 Again, we will combine data, metadata, and arguments using `seqwrap_compose`. We are now also adding the priors to the arguments. The variables used in the priors data frame are made available from the target-specific list referenced in `targetdata = Prior_list`. Using `arguments = alist(... ` avoids evaluation of the list so that the data frame is not evaluated before being used in each iteration. Priors have been built corresponding what is expected by `glmmTMB` (see [Priors in glmmTMB](https://glmmtmb.github.io/glmmTMB/articles/priors.html)).
@@ -447,7 +395,7 @@ m1.3 <- seqwrap_compose(
   modelfun = glmmTMB::glmmTMB,
   data = counts, 
   metadata = metadata, 
-  eval_fun = dispersion_fun, 
+  eval_fun = dispersion_evaluation, 
   arguments =  alist(
     formula = y ~ treatment * surgery + offset(efflibsize), 
     family = glmmTMB::nbinom2,
@@ -461,7 +409,7 @@ m1.3 <- seqwrap_compose(
 
 m1.3_temp <- seqwrap(
   m1.3, 
-  subset = 1:24, 
+  subset = 1:10, 
   return_models = TRUE, 
   verbose = FALSE
 )
@@ -483,6 +431,7 @@ m1.3_results <- seqwrap(
 )
 
 m1.3_sum <- seqwrap_summarise(m1.3_results, verbose = FALSE)
+
 
 ```
 
