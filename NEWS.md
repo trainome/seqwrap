@@ -47,7 +47,7 @@
 
 ## Improvements and bug fixes
 - `seqwrap()` now dispatches data to workers in chunks of targets rather than
-  one target at a time. The new `chunk_size` argument to controls
+  one target at a time. The new `chunk_size` argument controls
   the granularity and defaults to a value chosen from the number of targets and
   workers. Per-target data frames are built on the worker, so the full
   per-target expansion of the data no longer exists in the parent process.

@@ -366,6 +366,7 @@ Except for the dispersion values, we can easily summarize parameter values by th
 
 Priors_list <- seqwrap_priors(m1.2_results, data = counts)
 
+
 # The priors built for the first target
 Priors_list[[1]]
 

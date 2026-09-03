@@ -1,12 +1,11 @@
 ## R CMD check results
 
--- R CMD check results --------------------- seqwrap 0.8.1 ----
-Duration: 3m 25.9s
+Checked with `R CMD check --as-cran`, including the vignettes, the tests and
+the PDF manual, on:
 
-0 errors v | 0 warnings v | 0 notes v
-
-Checked with `R CMD check --as-cran` on Windows 11, R 4.6.0, including the
-vignettes, the tests and the PDF manual.
+* Windows 11, R 4.6.0 (local): 0 errors, 0 warnings, 0 notes. Duration 3m 26s.
+* win-builder, R-devel (2026-08-31 r90457 ucrt), Windows Server 2022:
+  0 errors, 0 warnings, 0 notes.
 
 ## Notes for the reviewer
 
